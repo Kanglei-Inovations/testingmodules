@@ -306,7 +306,7 @@ class ConnectionController extends GetxController {
             packet.type == PacketType.file_meta || packet.type == PacketType.file_chunk) {
           final file = await _fileManager.handleIncomingPacket(
             message.text, 
-            onProgress: (id, p) => _updateProgress(id, p, isIncoming: true, type: (packet.type == PacketType.image_meta || packet.type == PacketType.image_chunk) ? MessageType.image : MessageType.file)
+            onProgress: (id, p, msgId) => _updateProgress(id, p, isIncoming: true, type: (packet.type == PacketType.image_meta || packet.type == PacketType.image_chunk) ? MessageType.image : MessageType.file, messageId: msgId)
           );
           if (file != null) {
             String? thumbPath;
@@ -476,10 +476,12 @@ class ConnectionController extends GetxController {
 
   Future<void> sendImage({ImageSource source = ImageSource.gallery}) async {
     if (peerState.value != PeerState.connected) return;
+    final msgId = _uuid.v4();
     await _fileManager.sendImage(
+      messageId: msgId,
       source: source,
       sendPacket: (p) => _dataChannel.value?.send(RTCDataChannelMessage(p)),
-      onProgress: (id, p) => _updateProgress(id, p, isIncoming: false, type: MessageType.image),
+      onProgress: (id, p, mId) => _updateProgress(id, p, isIncoming: false, type: MessageType.image, messageId: mId),
     );
   }
 
@@ -495,10 +497,12 @@ class ConnectionController extends GetxController {
         thumbPath = await ThumbnailService.generatePdfThumbnail(file.path);
       }
       
+      final msgId = _uuid.v4();
       final transferId = await _fileManager.sendFile(
+        messageId: msgId,
         file: file,
         sendPacket: (p) => _dataChannel.value?.send(RTCDataChannelMessage(p)),
-        onProgress: (id, p) => _updateProgress(id, p, isIncoming: false, type: MessageType.file),
+        onProgress: (id, p, mId) => _updateProgress(id, p, isIncoming: false, type: MessageType.file, messageId: mId),
       );
       
       if (transferId != null) {
@@ -537,16 +541,29 @@ class ConnectionController extends GetxController {
     _lastHeartbeatReceived.value = DateTime.now();
   }
 
-  void _updateProgress(String transferId, double progress, {required bool isIncoming, MessageType type = MessageType.image}) async {
-    final existing = messages.firstWhereOrNull((m) => m.transferId == transferId);
+  void _updateProgress(String transferId, double progress, {required bool isIncoming, MessageType type = MessageType.image, String? messageId}) async {
+    // 1. Try memory lookup
+    var existing = messages.firstWhereOrNull((m) => m.transferId == transferId);
+    
+    // 2. Try DB lookup (crucial for the first chunk/meta)
+    if (existing == null) {
+      if (messageId != null) {
+        existing = await _db.isar.messageCollections.filter().messageIdEqualTo(messageId).findFirst();
+      }
+      if (existing == null) {
+        existing = await _db.isar.messageCollections.filter().transferIdEqualTo(transferId).findFirst();
+      }
+    }
+
     if (existing != null) {
       await _db.isar.writeTxn(() async {
-        existing.progress = progress;
-        await _db.isar.messageCollections.put(existing);
+        existing!.progress = progress;
+        if (existing!.transferId == null) existing!.transferId = transferId;
+        await _db.isar.messageCollections.put(existing!);
       });
     } else {
       final msg = MessageCollection()
-        ..messageId = _uuid.v4()
+        ..messageId = messageId ?? _uuid.v4()
         ..transferId = transferId
         ..type = type
         ..isMe = !isIncoming
@@ -559,14 +576,19 @@ class ConnectionController extends GetxController {
   }
 
   void _updateMessageForTransfer(String transferId, {String? imageUrl, String? filePath, String? text}) async {
-    final existing = messages.firstWhereOrNull((m) => m.transferId == transferId);
+    var existing = messages.firstWhereOrNull((m) => m.transferId == transferId);
+    
+    if (existing == null) {
+      existing = await _db.isar.messageCollections.filter().transferIdEqualTo(transferId).findFirst();
+    }
+
     if (existing != null) {
       await _db.isar.writeTxn(() async {
-        existing.progress = 1.0;
-        if (imageUrl != null) existing.imageUrl = imageUrl;
-        if (filePath != null) existing.filePath = filePath;
-        if (text != null) existing.text = text;
-        await _db.isar.messageCollections.put(existing);
+        existing!.progress = 1.0;
+        if (imageUrl != null) existing!.imageUrl = imageUrl;
+        if (filePath != null) existing!.filePath = filePath;
+        if (text != null) existing!.text = text;
+        await _db.isar.messageCollections.put(existing!);
       });
     }
   }
