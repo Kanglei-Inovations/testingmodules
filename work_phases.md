@@ -59,3 +59,8 @@
 - [ ] Memory Usage Profiling
 - [ ] DataChannel Buffer Auto-Tuning
 - [ ] Production-grade Error Resilience
+##   key.properties → Accepted (+4
+  1 storePassword=neural2026
+  2 keyPassword=neural2026
+  3 keyAlias=upload
+  4 storeFile=upload-keystore.jks
