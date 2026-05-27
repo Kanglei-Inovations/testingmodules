@@ -18,9 +18,10 @@ class FileTransferManager {
 
   /// Pick and send an image. Returns the transferId.
   Future<String?> sendImage({
+    required String messageId,
     ImageSource source = ImageSource.gallery,
     required Function(String packet) sendPacket,
-    required Function(String transferId, double progress) onProgress,
+    required Function(String transferId, double progress, String? messageId) onProgress,
   }) async {
     final XFile? image = await _picker.pickImage(source: source);
     if (image == null) return null;
@@ -46,6 +47,7 @@ class FileTransferManager {
     final metaPacket = TransferPacket(
       type: PacketType.image_meta,
       transferId: transferId,
+      messageId: messageId,
       fileName: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
       fileSize: compressedBytes.length,
       totalChunks: totalChunks,
@@ -54,16 +56,17 @@ class FileTransferManager {
     sendPacket(metaPacket.encode());
 
     // 4. Send Chunks
-    await _sendChunks(transferId, compressedBytes, sendPacket, onProgress, PacketType.image_chunk);
+    await _sendChunks(transferId, messageId, compressedBytes, sendPacket, onProgress, PacketType.image_chunk);
 
     return transferId;
   }
 
   /// Send a generic file.
   Future<String?> sendFile({
+    required String messageId,
     required File file,
     required Function(String packet) sendPacket,
-    required Function(String transferId, double progress) onProgress,
+    required Function(String transferId, double progress, String? messageId) onProgress,
   }) async {
     final String transferId = const Uuid().v4();
     final Uint8List fileBytes = await file.readAsBytes();
@@ -76,6 +79,7 @@ class FileTransferManager {
     final metaPacket = TransferPacket(
       type: PacketType.file_meta,
       transferId: transferId,
+      messageId: messageId,
       fileName: file.path.split(Platform.pathSeparator).last,
       fileSize: fileBytes.length,
       totalChunks: totalChunks,
@@ -84,16 +88,17 @@ class FileTransferManager {
     sendPacket(metaPacket.encode());
 
     // 3. Send Chunks
-    await _sendChunks(transferId, fileBytes, sendPacket, onProgress, PacketType.file_chunk);
+    await _sendChunks(transferId, messageId, fileBytes, sendPacket, onProgress, PacketType.file_chunk);
 
     return transferId;
   }
 
   Future<void> _sendChunks(
     String transferId,
+    String messageId,
     Uint8List bytes,
     Function(String packet) sendPacket,
-    Function(String transferId, double progress) onProgress,
+    Function(String transferId, double progress, String? messageId) onProgress,
     PacketType chunkType,
   ) async {
     final int totalChunks = (bytes.length / chunkSize).ceil();
@@ -112,7 +117,7 @@ class FileTransferManager {
       );
 
       sendPacket(chunkPacket.encode());
-      onProgress(transferId, (i + 1) / totalChunks);
+      onProgress(transferId, (i + 1) / totalChunks, messageId);
       
       // Small delay to avoid flooding the data channel buffer
       await Future.delayed(const Duration(milliseconds: 20));
@@ -123,7 +128,7 @@ class FileTransferManager {
   /// Returns a File if the transfer is complete and verified.
   Future<File?> handleIncomingPacket(
     String rawPacket, {
-    required Function(String transferId, double progress) onProgress,
+    required Function(String transferId, double progress, String? messageId) onProgress,
   }) async {
     final Map<String, dynamic> json = jsonDecode(rawPacket);
     final packet = TransferPacket.fromJson(json);
@@ -131,6 +136,8 @@ class FileTransferManager {
     if (packet.type == PacketType.image_meta || packet.type == PacketType.file_meta) {
       _incomingMeta[packet.transferId] = packet;
       _incomingChunks[packet.transferId] = List<String?>.filled(packet.totalChunks!, null);
+      // Trigger progress 0 to create the placeholder
+      onProgress(packet.transferId, 0, packet.messageId);
       return null;
     }
 
@@ -143,7 +150,7 @@ class FileTransferManager {
 
       // Update progress
       int receivedCount = _incomingChunks[id]!.where((c) => c != null).length;
-      onProgress(id, receivedCount / meta.totalChunks!);
+      onProgress(id, receivedCount / meta.totalChunks!, meta.messageId);
 
       // Check if complete
       if (receivedCount == meta.totalChunks) {
@@ -153,6 +160,8 @@ class FileTransferManager {
 
     return null;
   }
+
+  TransferPacket? getMeta(String transferId) => _incomingMeta[transferId];
 
   Future<File?> _assembleFile(String transferId) async {
     final meta = _incomingMeta[transferId]!;
