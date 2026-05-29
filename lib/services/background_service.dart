@@ -2,6 +2,14 @@ import 'dart:io';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
+import '../data/collections/message_collection.dart';
+import '../data/collections/peer_collection.dart';
+import '../data/collections/log_collection.dart';
+import '../data/collections/user_collection.dart';
+import '../data/collections/peer_session_collection.dart';
+import '../data/collections/stun_collection.dart';
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -9,15 +17,37 @@ void startCallback() {
 }
 
 class BackgroundSyncHandler extends TaskHandler {
+  Isar? _isar;
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     print('Background Sync Handler Started');
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      _isar = await Isar.open(
+        [
+          MessageCollectionSchema,
+          PeerCollectionSchema,
+          LogCollectionSchema,
+          UserCollectionSchema,
+          PeerSessionCollectionSchema,
+          StunCollectionSchema,
+        ],
+        directory: dir.path,
+      );
+      print('Headless Isar Initialized');
+    } catch (e) {
+      print('Headless Isar Init Error: $e');
+    }
   }
 
   @override
   void onRepeatEvent(DateTime timestamp) async {
     // This is where we will trigger sync logic in the background isolate
-    // We will eventually need to re-initialize a minimal version of the DB/Sync engine here
+    if (_isar != null) {
+       // Placeholder for future sync logic using _isar
+    }
+    
     FlutterForegroundTask.updateService(
       notificationTitle: 'NEURAL LINK ACTIVE',
       notificationText: 'Last Sync: ${DateTime.now().hour}:${DateTime.now().minute}',
@@ -26,6 +56,7 @@ class BackgroundSyncHandler extends TaskHandler {
 
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
+    await _isar?.close();
     print('Background Sync Handler Destroyed');
   }
 }

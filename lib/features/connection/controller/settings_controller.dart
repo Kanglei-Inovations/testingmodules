@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
@@ -35,6 +36,9 @@ class SettingsController extends GetxController {
   var encryptionEnabled = true.obs;
   var devicePeerId = "NODE-IDLE".obs;
 
+  // Background Sync
+  var isBatteryOptimized = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -45,6 +49,18 @@ class SettingsController extends GetxController {
     _prefs = await SharedPreferences.getInstance();
     await _loadStunServers();
     await _loadGeneralSettings();
+    await checkBatteryOptimization();
+  }
+
+  Future<void> checkBatteryOptimization() async {
+    isBatteryOptimized.value = await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+  }
+
+  Future<void> requestBatteryOptimization() async {
+    final success = await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+    if (success) {
+      isBatteryOptimized.value = true;
+    }
   }
 
   Future<void> _loadStunServers() async {

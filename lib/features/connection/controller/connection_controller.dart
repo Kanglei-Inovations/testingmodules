@@ -20,6 +20,8 @@ import '../../../data/collections/user_collection.dart';
 import '../../../services/database_service.dart';
 import '../../../services/sync/sync_engine.dart';
 import '../../../services/background_service.dart';
+import '../../../services/signaling_service.dart';
+import '../../../services/discovery_service.dart';
 
 enum PeerState {
   idle,
@@ -73,6 +75,8 @@ class ConnectionController extends GetxController {
   final SettingsController _settings = Get.find<SettingsController>();
   final DatabaseService _db = Get.find<DatabaseService>();
   final SyncEngine _syncEngine = Get.put(SyncEngine());
+  final SignalingService _signaling = Get.put(SignalingService());
+  final DiscoveryService _discovery = Get.put(DiscoveryService());
 
   bool _isProcessingSdp = false;
 
@@ -99,6 +103,7 @@ class ConnectionController extends GetxController {
   
   // Peer Resume State
   var activePeerSession = Rxn<PeerSessionCollection>();
+  var _activePeerIp = Rxn<String>();
 
   Map<String, dynamic> get _configuration => {
     'iceServers': [
@@ -130,6 +135,27 @@ class ConnectionController extends GetxController {
       }
     });
 
+    // Automated Signaling Listeners
+    _signaling.onRemoteSdpReceived = (sdp, ip) {
+      _activePeerIp.value = ip;
+      handleRemoteSdp(sdp);
+    };
+    
+    _discovery.onKnownPeerDiscovered = (peerId, ip) {
+      if (peerState.value == PeerState.idle || peerState.value == PeerState.offline) {
+        addLog("Auto-Discovery: Initiating link with known node $peerId at $ip");
+        _activePeerIp.value = ip;
+        createOffer();
+      }
+    };
+
+    // Auto-send local SDP if we have an active peer IP
+    ever(localSdp, (sdp) {
+      if (sdp.isNotEmpty && _activePeerIp.value != null) {
+        _signaling.sendSdpToPeer(_activePeerIp.value!, sdp);
+      }
+    });
+
     initNode();
   }
 
@@ -137,6 +163,7 @@ class ConnectionController extends GetxController {
   void onClose() {
     _heartbeatTimer?.cancel();
     _presenceMonitor?.cancel();
+    _discovery.stopDiscovery();
     disposeNode();
     super.onClose();
   }
@@ -198,10 +225,7 @@ class ConnectionController extends GetxController {
 
         RTCSessionDescription? localDescription = await _peerConnection.value!.getLocalDescription();
         if (localDescription != null) {
-          localSdp.value = jsonEncode({
-            "sdp": localDescription.sdp,
-            "type": localDescription.type,
-          });
+          localSdp.value = _signaling.prepareSdpForSharing(localDescription);
           if (iceCandidates.length >= 2) {
              isSdpReady.value = true;
              if (handshakeStage.value != HandshakeStage.none && handshakeStage.value.index < HandshakeStage.ready.index) {
@@ -222,6 +246,12 @@ class ConnectionController extends GetxController {
         _dataChannel.value = channel;
         _setupDataChannel();
       };
+
+      // Start Discovery & Broadcast
+      if (localUser != null) {
+        _discovery.startBroadcast(localUser!.peerId);
+        _discovery.startDiscovery();
+      }
     } catch (e) {
       addLog("Node Init Failure: $e");
       peerState.value = PeerState.failed;

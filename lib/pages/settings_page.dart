@@ -30,6 +30,8 @@ class SettingsPage extends StatelessWidget {
                     children: [
                       _buildNetworkStatusCard(),
                       const SizedBox(height: 25),
+                      _buildBackgroundPanel(),
+                      const SizedBox(height: 25),
                       _buildStunManager(context),
                       const SizedBox(height: 25),
                       _buildWebRtcPanel(),
@@ -46,6 +48,35 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBackgroundPanel() {
+    return _SettingsSection(
+      title: "BACKGROUND PROTOCOL",
+      icon: Icons.sync_problem_rounded,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("BATTERY OPTIMIZATION", style: TextStyle(color: Colors.white54, fontSize: 10)),
+                Text("ESSENTIAL FOR PERSISTENT SYNC", style: TextStyle(color: Colors.white24, fontSize: 8)),
+              ],
+            ),
+            Obx(() => _CyberOutlineButton(
+              label: controller.isBatteryOptimized.value ? "WHITELISTED" : "OPTIMIZED",
+              icon: controller.isBatteryOptimized.value ? Icons.verified_user_rounded : Icons.battery_alert_rounded,
+              color: controller.isBatteryOptimized.value ? ThemeColors.terminalGreen : Colors.orangeAccent,
+              onPressed: () => controller.requestBatteryOptimization(),
+              height: 35,
+              width: 130,
+            )),
+          ],
+        ),
+      ],
     );
   }
 
@@ -423,15 +454,25 @@ class _CyberOutlineButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final Color color;
+  final double? height;
+  final double? width;
 
-  const _CyberOutlineButton({required this.label, required this.icon, required this.onPressed, this.color = ThemeColors.neonCyan});
+  const _CyberOutlineButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.color = ThemeColors.neonCyan,
+    this.height,
+    this.width,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        height: 45,
+        height: height ?? 45,
+        width: width,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color.withOpacity(0.5)),

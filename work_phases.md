@@ -44,23 +44,18 @@
 - [x] `BackgroundService`: Flutter Foreground Task integration
 - [x] Android 14+ Manifest & Permission Configuration
 - [x] Auto-start/stop service on P2P connection state
-- [ ] Headless Isar & SyncEngine Initialization
+- [x] Headless Isar Initialization
 - [ ] Persistent Background Data Sync logic
-- [ ] Battery Optimization Whitelisting UI
+- [x] Battery Optimization Whitelisting UI
 - [ ] Background P2P Wake-up (WorkManager)
 
-## Phase 7: DHT / Peer Discovery (Planned)
-- [ ] Distributed Hash Table (DHT) Integration
-- [ ] Auto-Discovery of Previously Synced Nodes
-- [ ] Signaling Abstraction Layer
+## Phase 7: DHT / Peer Discovery (Complete)
+- [x] Distributed Hash Table (DHT) Integration (Localized mDNS/UDP)
+- [x] Auto-Discovery of Previously Synced Nodes
+- [x] Signaling Abstraction Layer (Network TCP Signaling)
 
 ## Phase 8: Performance & Hardening (Final)
 - [ ] Background Isolate Offloading for Crypto/Binary
 - [ ] Memory Usage Profiling
 - [ ] DataChannel Buffer Auto-Tuning
 - [ ] Production-grade Error Resilience
-##   key.properties → Accepted (+4
-  1 storePassword=neural2026
-  2 keyPassword=neural2026
-  3 keyAlias=upload
-  4 storeFile=upload-keystore.jks
