@@ -32,18 +32,42 @@ class HomePage extends StatelessWidget {
           MeshBackground(),
           SafeArea(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildTopHeader(context),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "WELCOME BACK",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      Text(
+                        "Your Neural Network is Ready",
+                        style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
                 Expanded(
                   child: ListView(
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     children: [
-                      const SizedBox(height: 20),
-                      _buildStatusCard(),
+                      _buildQuickActions(context),
                       const SizedBox(height: 30),
                       _buildConnectedNodeCard(context),
-                      const SizedBox(height: 30),
-                      _buildActionButtons(context),
                       const SizedBox(height: 30),
                     ],
                   ),
@@ -53,6 +77,54 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "QUICK ACTIONS",
+          style: TextStyle(
+            color: Colors.white30,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 15),
+        _QuickActionButton(
+          label: "Create / Connect",
+          icon: Icons.add_circle_outline,
+          color: ThemeColors.neonPurple,
+          trailing: const Icon(Icons.add, color: Colors.white38, size: 18),
+          onPressed: () => Get.to(() => const CreateConnectPage()),
+        ),
+        _QuickActionButton(
+          label: "Join with QR / Link",
+          icon: Icons.qr_code_scanner_rounded,
+          color: ThemeColors.neonCyan,
+          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+          onPressed: () => _showAnswerInputChoice(context),
+        ),
+        _QuickActionButton(
+          label: "My Peers",
+          icon: Icons.people_outline_rounded,
+          color: Colors.white38,
+          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+          onPressed: () {},
+        ),
+        _QuickActionButton(
+          label: "Settings",
+          icon: Icons.settings_outlined,
+          color: Colors.white38,
+          trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+          onPressed: () {
+             // Navigation logic
+          },
+        ),
+      ],
     );
   }
 
@@ -67,12 +139,11 @@ class HomePage extends StatelessWidget {
       final address = session?.address ?? "Locating...";
       final gps = session?.latitude != null ? "${session!.latitude!.toStringAsFixed(4)}, ${session.longitude!.toStringAsFixed(4)}" : "GPS Pending";
       
-      // Calculate duration
       final duration = session != null ? DateTime.now().difference(session.lastConnectedAt) : Duration.zero;
       final durationStr = "${duration.inMinutes}m ${duration.inSeconds % 60}s";
 
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 30),
+        margin: const EdgeInsets.symmetric(horizontal: 0),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: ThemeColors.glassBg,
@@ -112,7 +183,6 @@ class HomePage extends StatelessWidget {
                       height: 14,
                       decoration: const BoxDecoration(color: ThemeColors.terminalGreen, shape: BoxShape.circle),
                     )
-
                   ],
                 ),
                 const SizedBox(width: 15),
@@ -185,7 +255,6 @@ class HomePage extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    // Profile Image with Active Dot
                     GestureDetector(
                       onTap: () => _showProfileDialog(context),
                       child: Stack(
@@ -224,8 +293,7 @@ class HomePage extends StatelessWidget {
                               border: Border.all(color: ThemeColors.darkBg, width: 2),
                             ),
                           ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
-                            begin: const Offset(1, 1),
-                            end: const Offset(1.2, 1.2),
+                            begin: const Offset(1, 1), end: const Offset(1.2, 1.2),
                             duration: const Duration(seconds: 1),
                           ),
                         ],
@@ -236,21 +304,8 @@ class HomePage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Neural node active,',
-                            style: TextStyle(color: Colors.white38, fontSize: 11, letterSpacing: 1),
-                          ),
-                          Text(
-                            displayName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 1,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          const Text('Neural node active,', style: TextStyle(color: Colors.white38, fontSize: 11, letterSpacing: 1)),
+                          Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
@@ -270,10 +325,7 @@ class HomePage extends StatelessWidget {
                   children: [
                     const Icon(Icons.wifi_tethering, color: ThemeColors.neonCyan, size: 14),
                     const SizedBox(width: 6),
-                    Text(
-                      isConnected ? "P2P LIVE" : "IDLE",
-                      style: const TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
+                    Text(isConnected ? "P2P LIVE" : "IDLE", style: const TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -310,158 +362,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusCard() {
-    return Obx(() {
-      final state = controller.peerState.value;
-      final isConnected = state == PeerState.connected || state == PeerState.syncing;
-      
-      String statusText = "NODE OFFLINE";
-      Color accentColor = Colors.white24;
-
-      switch (state) {
-        case PeerState.connected:
-          statusText = "SECURE CHANNEL ACTIVE";
-          accentColor = ThemeColors.neonCyan;
-          break;
-        case PeerState.syncing:
-          statusText = "SYNCHRONIZING DATA...";
-          accentColor = ThemeColors.neonPurple;
-          break;
-        case PeerState.reconnecting:
-          statusText = "RE-ESTABLISHING LINK...";
-          accentColor = Colors.amber;
-          break;
-        case PeerState.stale:
-          statusText = "SIGNAL WEAK / STALE";
-          accentColor = Colors.orange;
-          break;
-        case PeerState.gatheringIce:
-          statusText = "GATHERING NETWORK PATHS";
-          accentColor = ThemeColors.neonCyan;
-          break;
-        case PeerState.signaling:
-          statusText = "NEGOTIATING HANDSHAKE";
-          accentColor = ThemeColors.neonPink;
-          break;
-        default:
-          break;
-      }
-
-      return Container(
-        padding: const EdgeInsets.all(30),
-        margin: const EdgeInsets.symmetric(horizontal: 30),
-        decoration: BoxDecoration(
-          color: ThemeColors.glassBg,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: isConnected ? accentColor : Colors.white10),
-          boxShadow: [
-            if (isConnected) BoxShadow(color: accentColor.withOpacity(0.1), blurRadius: 30)
-          ],
-        ),
-        child: Column(
-          children: [
-            _buildStatusIndicator(state, accentColor),
-            const SizedBox(height: 20),
-            Text(
-              statusText,
-              style: TextStyle(
-                color: isConnected ? accentColor : Colors.white70,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-                fontSize: 12,
-              ),
-            ),
-            if (isConnected) ...[
-              const SizedBox(height: 10),
-              const Text("DIRECT P2P ENCRYPTION ENABLED", style: TextStyle(color: Colors.white30, fontSize: 10)),
-            ]
-          ],
-        ),
-      ).animate().scale(delay: 200.ms, curve: Curves.easeOutBack);
-    });
-  }
-
-  Widget _buildStatusIndicator(PeerState state, Color color) {
-    IconData icon = Icons.link_off;
-    if (state == PeerState.connected || state == PeerState.syncing) icon = Icons.link;
-    if (state == PeerState.reconnecting || state == PeerState.gatheringIce) icon = Icons.sync_problem;
-    if (state == PeerState.stale) icon = Icons.wifi_off_rounded;
-
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 2),
-      ),
-      child: Center(
-        child: Icon(icon, color: color, size: 40),
-      ),
-    ).animate(onPlay: (c) => c.repeat()).shimmer(duration: const Duration(seconds: 2), color: color.withOpacity(0.3));
-  }
-
-  Widget _buildActionButtons(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30),
-      child: Column(
-        children: [
-          CyberButton(
-            label: "⚡ HANDSHAKE NEURAL LINK",
-            color: ThemeColors.neonCyan,
-            onPressed: () => _showHandshakeOptions(context),
-            fullWidth: true,
-          ),
-
-
-        ],
-      ),
-    );
-  }
-
-  void _showHandshakeOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(30),
-        decoration: const BoxDecoration(
-          color: ThemeColors.darkBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          border: Border(top: BorderSide(color: ThemeColors.neonCyan, width: 2)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("NEURAL LINK HANDSHAKE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2)),
-            const SizedBox(height: 30),
-            CyberButton(
-              label: "CREATE INITIAL OFFER",
-              color: ThemeColors.neonCyan,
-              onPressed: () {
-                Get.back();
-                controller.isSdpReady.value = false;
-                controller.createOffer();
-                Get.to(() => NeuralHandshakeOverlay(), opaque: false);
-              },
-              fullWidth: true,
-            ),
-            const SizedBox(height: 15),
-            CyberButton(
-              label: "PROCESS REMOTE LINK",
-              color: ThemeColors.neonPink,
-              onPressed: () {
-                Get.back();
-                _showAnswerInputChoice(context);
-              },
-              fullWidth: true,
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showAnswerInputChoice(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -484,9 +384,7 @@ class HomePage extends StatelessWidget {
               onPressed: () async {
                 Get.back();
                 final result = await Get.to<String>(() => const QrScannerScreen());
-                if (result != null) {
-                  _processRemoteSdp(context, result);
-                }
+                if (result != null) _processRemoteSdp(context, result);
               },
               fullWidth: true,
             ),
@@ -520,28 +418,20 @@ class HomePage extends StatelessWidget {
             side: const BorderSide(color: ThemeColors.neonPink, width: 1.5),
           ),
           title: const Text("DATA INJECTION", style: TextStyle(color: Colors.white, letterSpacing: 2, fontSize: 16)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: textController,
-                maxLines: 5,
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
-                decoration: InputDecoration(
-                  hintText: "PASTE REMOTE SDP STREAM...",
-                  hintStyle: const TextStyle(color: Colors.white24),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.05),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                ),
-              ),
-            ],
+          content: TextField(
+            controller: textController,
+            maxLines: 5,
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
+            decoration: InputDecoration(
+              hintText: "PASTE REMOTE SDP STREAM...",
+              hintStyle: const TextStyle(color: Colors.white24),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.05),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+            ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text("CANCEL", style: TextStyle(color: Colors.white24)),
-            ),
+            TextButton(onPressed: () => Get.back(), child: const Text("CANCEL", style: TextStyle(color: Colors.white24))),
             CyberButton(
               label: "INJECT",
               color: ThemeColors.neonPink,
@@ -564,75 +454,61 @@ class HomePage extends StatelessWidget {
     final type = sdpMap["type"];
 
     if (type == "offer") {
-      // Device B Receiving Offer
       Get.to(() => NeuralHandshakeOverlay(isReceiving: true), opaque: false);
       controller.handleRemoteSdp(sdp);
     } else {
-      // Device A Receiving Answer
       Get.to(() => NeuralHandshakeOverlay(isCompleting: true), opaque: false);
       controller.handleRemoteSdp(sdp);
     }
   }
+}
 
-  void _showSharePopup(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(30),
-        decoration: const BoxDecoration(
-          color: ThemeColors.darkBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          border: Border(top: BorderSide(color: ThemeColors.neonCyan, width: 2)),
-        ),
-        child: Obx(() {
-          final isReady = controller.isSdpReady.value;
-          final sdp = controller.localSdp.value;
+class _QuickActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Widget trailing;
+  final VoidCallback onPressed;
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
+  const _QuickActionButton({required this.label, required this.icon, required this.color, required this.trailing, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Row(
             children: [
-              Text(
-                isReady ? "NODE IDENTITY ACTIVE" : "GATHERING NETWORK PATHS",
-                style: TextStyle(
-                  color: isReady ? Colors.white : ThemeColors.neonCyan,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: color, size: 20),
               ),
-              const SizedBox(height: 30),
-              if (!isReady)
-                const Column(
-                  children: [
-                    CircularProgressIndicator(color: ThemeColors.neonCyan),
-                    SizedBox(height: 20),
-                    Text("SYNCING WITH STUN SERVERS...", style: TextStyle(color: Colors.white24, fontSize: 10)),
-                  ],
-                )
-              else ...[
-                CyberButton(
-                  label: "GENERATE QR CODE",
-                  color: ThemeColors.neonCyan,
-                  onPressed: () => Get.to(() => QrGeneratorScreen(sdpData: sdp)),
-                  fullWidth: true,
-                ),
-                const SizedBox(height: 15),
-                CyberButton(
-                  label: "SHARE SECURE LINK",
-                  color: ThemeColors.neonPurple,
-                  onPressed: () {
-                    final encoded = SdpCompressor.encode(sdp);
-                    Share.share(encoded, subject: "NEURAL NODE IDENTITY");
-                  },
-                  fullWidth: true,
-                ),
-              ],
-              const SizedBox(height: 20),
+              const SizedBox(width: 16),
+              Expanded(child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500))),
+              trailing,
             ],
-          );
-        }),
+          ),
+        ),
       ),
     );
+  }
+}
+
+// Placeholder classes to be moved to separate files
+class CreateConnectPage extends StatelessWidget {
+  const CreateConnectPage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(backgroundColor: ThemeColors.darkBg, body: Center(child: Text("Create / Connect Screen", style: TextStyle(color: Colors.white))));
   }
 }

@@ -23,6 +23,8 @@ import '../../../services/background_service.dart';
 import '../../../services/signaling_service.dart';
 import '../../../services/discovery_service.dart';
 
+enum DiscoveryMode { manual, dht, lan }
+
 enum PeerState {
   idle,
   discovering,
@@ -90,9 +92,15 @@ class ConnectionController extends GetxController {
 
   // Observables
   var peerState = PeerState.idle.obs;
+  var discoveryMode = DiscoveryMode.dht.obs; // Default to DHT per image
   var handshakeStage = HandshakeStage.none.obs;
   var receiveStage = ReceiveStage.none.obs;
   var completionStage = CompletionStage.none.obs;
+
+  // DHT Stats
+  var peersFound = 0.obs;
+  var checkedNodes = 0.obs;
+  var networkStatus = "Healthy".obs;
 
   var messages = <MessageCollection>[].obs;
   var logs = <String>[].obs;
@@ -149,6 +157,12 @@ class ConnectionController extends GetxController {
       }
     };
 
+    // Update discovery stats
+    _discovery.discoveredNodes.listen((nodes) {
+      peersFound.value = nodes.length;
+      checkedNodes.value = nodes.length * 15 + 3; // Simulated checked nodes for UI
+    });
+
     // Auto-send local SDP if we have an active peer IP
     ever(localSdp, (sdp) {
       if (sdp.isNotEmpty && _activePeerIp.value != null) {
@@ -157,6 +171,18 @@ class ConnectionController extends GetxController {
     });
 
     initNode();
+  }
+
+  void startDhtDiscovery() {
+    peersFound.value = 0;
+    checkedNodes.value = 0;
+    _discovery.startDiscovery();
+  }
+
+  void connectToPeer(String peerId, String ip) {
+    addLog("Manual Connect: Initiating link with $peerId at $ip");
+    _activePeerIp.value = ip;
+    createOffer();
   }
 
   @override

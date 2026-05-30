@@ -19,8 +19,9 @@ class _MainHubState extends State<MainHub> {
   final List<Widget> _pages = [
     HomePage(),
     const ChatPage(),
-    const LogPage(),
-    SettingsPage(),
+    const PlaceholderPage(title: "FILES"),
+    const PlaceholderPage(title: "PEERS"),
+    const ProfilePage(),
   ];
 
   @override
@@ -51,15 +52,51 @@ class _MainHubState extends State<MainHub> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: ThemeColors.neonCyan,
         unselectedItemColor: Colors.white24,
-        selectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-        unselectedLabelStyle: const TextStyle(fontSize: 10, letterSpacing: 1),
+        selectedLabelStyle: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1),
+        unselectedLabelStyle: const TextStyle(fontSize: 8, letterSpacing: 1),
         elevation: 0,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.hub_outlined), label: "HOME"),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline_rounded), label: "CHAT"),
-          BottomNavigationBarItem(icon: Icon(Icons.terminal_rounded), label: "LOGS"),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_suggest_rounded), label: "CONFIG"),
+          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_rounded), label: "Chats"),
+          BottomNavigationBarItem(icon: Icon(Icons.file_copy_rounded), label: "Files"),
+          BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: "Peers"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: "Profile"),
         ],
+      ),
+    );
+  }
+}
+
+class PlaceholderPage extends StatelessWidget {
+  final String title;
+  const PlaceholderPage({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ThemeColors.darkBg,
+      body: Center(
+        child: Text(
+          title,
+          style: const TextStyle(color: Colors.white24, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
+        ),
+      ),
+    );
+  }
+}
+
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ThemeColors.darkBg,
+      body: const Center(
+        child: Text(
+          "PROFILE SETTINGS",
+          style: TextStyle(color: Colors.white24, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
+        ),
       ),
     );
   }
