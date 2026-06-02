@@ -1,9 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controller/connection_controller.dart';
-import '../../../utils/theme_colors.dart';
-import '../../../widgets/cyber_button.dart';
+import '../features/connection/controller/connection_controller.dart';
+import '../utils/theme_colors.dart';
+import '../widgets/cyber_button.dart';
 import 'available_peers_page.dart';
 
 class DhtDiscoveryPage extends StatefulWidget {
@@ -178,7 +178,7 @@ class RadarPainter extends CustomPainter {
         transform: GradientRotation(angle * 2 * pi - pi / 2),
       ).createShader(Rect.fromCircle(center: center, radius: radius));
 
-    canvas.drawCircle(center, radius, Paint()..shader = sweepPaint);
+    canvas.drawCircle(center, radius, sweepPaint);
     
     // Draw sweeping line
     final lineAngle = angle * 2 * pi - pi / 2;

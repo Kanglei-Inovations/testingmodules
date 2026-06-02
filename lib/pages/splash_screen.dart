@@ -23,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
   String _status = "INITIALIZING NEURAL CORE...";
   int _bootPhase = 0; // 0-6
   double _progress = 0.0;
-  bool _showFlash = false;
+  // bool _showFlash = false;
 
   @override
   void initState() {
@@ -82,8 +82,8 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 800));
 
     // Cinematic Flash before transition
-    setState(() => _showFlash = true);
-    await Future.delayed(const Duration(milliseconds: 200));
+    // setState(() => _showFlash = true);
+    // await Future.delayed(const Duration(milliseconds: 200));
 
     if (user != null) {
       Get.offAllNamed('/hub');
@@ -117,10 +117,10 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
           ),
-          if (_showFlash)
-            Positioned.fill(
-              child: Container(color: Colors.white).animate().fadeOut(duration: const Duration(milliseconds: 300)),
-            ),
+          // if (_showFlash)
+          //   Positioned.fill(
+          //     child: Container(color: Colors.white).animate().fadeOut(duration: const Duration(milliseconds: 300)),
+          //   ),
         ],
       ),
     );

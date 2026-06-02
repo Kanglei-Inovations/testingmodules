@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controller/connection_controller.dart';
-import '../../../utils/theme_colors.dart';
-import '../../../widgets/cyber_button.dart';
+import '../features/connection/controller/connection_controller.dart';
+import '../utils/theme_colors.dart';
+import '../widgets/cyber_button.dart';
+import '../widgets/neural_handshake_overlay.dart';
 import 'dht_discovery_page.dart';
 
 class CreateConnectPage extends StatelessWidget {
@@ -72,11 +73,14 @@ class CreateConnectPage extends StatelessWidget {
               label: "START DISCOVERY",
               color: ThemeColors.neonPurple,
               onPressed: () {
+                print("[DEBUG-UI] 'START DISCOVERY' tapped. Selected mode: ${controller.discoveryMode.value}");
                 if (controller.discoveryMode.value == DiscoveryMode.manual) {
+                  print("[DEBUG-UI] Initiating Manual mode (QR/Link)...");
                   controller.isSdpReady.value = false;
                   controller.createOffer();
-                  _showManualShareSheet(context, controller);
+                  Get.off(() => NeuralHandshakeOverlay(), opaque: false);
                 } else {
+                  print("[DEBUG-UI] Initiating Auto Discovery (DHT/LAN)...");
                   controller.startDhtDiscovery();
                   Get.to(() => const DhtDiscoveryPage());
                 }
@@ -89,71 +93,8 @@ class CreateConnectPage extends StatelessWidget {
       ),
     );
   }
-
-  void _showManualShareSheet(BuildContext context, ConnectionController controller) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(30),
-        decoration: const BoxDecoration(
-          color: ThemeColors.darkBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          border: Border(top: BorderSide(color: ThemeColors.neonCyan, width: 2)),
-        ),
-        child: Obx(() {
-          final isReady = controller.isSdpReady.value;
-          final sdp = controller.localSdp.value;
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isReady ? "NODE IDENTITY ACTIVE" : "GATHERING NETWORK PATHS",
-                style: TextStyle(
-                  color: isReady ? Colors.white : ThemeColors.neonCyan,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 30),
-              if (!isReady)
-                const Column(
-                  children: [
-                    CircularProgressIndicator(color: ThemeColors.neonCyan),
-                    SizedBox(height: 20),
-                    Text("SYNCING WITH STUN SERVERS...", style: TextStyle(color: Colors.white24, fontSize: 10)),
-                  ],
-                )
-              else ...[
-                CyberButton(
-                  label: "GENERATE QR CODE",
-                  color: ThemeColors.neonCyan,
-                  onPressed: () {
-                    Get.back();
-                    Get.to(() => QrGeneratorScreen(sdpData: sdp));
-                  },
-                  fullWidth: true,
-                ),
-                const SizedBox(height: 15),
-                CyberButton(
-                  label: "COPY SECURE LINK",
-                  color: ThemeColors.neonPurple,
-                  onPressed: () {
-                    // Implement copy logic or share logic
-                  },
-                  fullWidth: true,
-                ),
-              ],
-              const SizedBox(height: 20),
-            ],
-          );
-        }),
-      ),
-    );
-  }
 }
+
 
 class _DiscoveryModeCard extends StatelessWidget {
   final String title;

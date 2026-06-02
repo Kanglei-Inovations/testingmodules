@@ -12,16 +12,22 @@ class DiscoveryService extends GetxService {
   final String _serviceType = '_neurallink._tcp.local';
   
   MDnsClient? _mdnsClient;
-  final discoveredNodes = <String, String>{}.obs; // PeerID -> IP
+  // PeerID -> { "ip": IP, "name": Name }
+  final discoveredNodes = <String, Map<String, String>>{}.obs; 
   
   Function(String peerId, String ip)? onKnownPeerDiscovered;
 
   bool _isBroadcasting = false;
   bool _isScanning = false;
+  
+  String? _localPeerId;
 
   Future<void> startDiscovery() async {
     if (_isScanning) return;
     _isScanning = true;
+    
+    final user = await _db.getUser();
+    _localPeerId = user?.peerId;
     
     _mdnsClient = MDnsClient();
     await _mdnsClient!.start();
@@ -37,7 +43,11 @@ class DiscoveryService extends GetxService {
             ResourceRecordQuery.addressIPv4(srv.target))) {
           
           final peerId = ptr.domainName.split('.').first;
-          discoveredNodes[peerId] = ip.address.address;
+          
+          // Skip self
+          if (peerId == _localPeerId) continue;
+          
+          discoveredNodes[peerId] = {"ip": ip.address.address, "name": "Neural Node"};
           print("DEBUG: Discovered Node: $peerId at ${ip.address.address}");
           
           // Check if this is a known peer
@@ -47,24 +57,21 @@ class DiscoveryService extends GetxService {
     }
   }
 
-  Future<void> startBroadcast(String peerId) async {
+  Future<void> startBroadcast(String peerId, String name) async {
     if (_isBroadcasting) return;
     _isBroadcasting = true;
+    _localPeerId = peerId;
 
-    // mDNS broadcasting in Dart is typically done via external tools or manual socket handling
-    // as multicast_dns package is primarily a client. 
-    // For a true P2P node, we'll use a simple UDP broadcast as a fallback or 
-    // implement a minimal mDNS responder if needed.
-    
     // For Phase 7, we'll start with a UDP Announcer for simplicity and reliability in Flutter.
-    _startUdpAnnouncer(peerId);
+    _startUdpAnnouncer(peerId, name);
   }
 
-  void _startUdpAnnouncer(String peerId) async {
+  void _startUdpAnnouncer(String peerId, String name) async {
     RawDatagramSocket.bind(InternetAddress.anyIPv4, 0).then((RawDatagramSocket socket) {
       socket.broadcastEnabled = true;
       Timer.periodic(const Duration(seconds: 5), (timer) {
-        final data = "NEURAL_LINK_NODE:$peerId";
+        // Broadcast both ID and Name safely
+        final data = "NEURAL_LINK_NODE:$peerId:${Uri.encodeComponent(name)}";
         socket.send(data.codeUnits, InternetAddress("255.255.255.255"), 5555);
       });
     });
@@ -77,11 +84,23 @@ class DiscoveryService extends GetxService {
           if (dg != null) {
             final message = String.fromCharCodes(dg.data);
             if (message.startsWith("NEURAL_LINK_NODE:")) {
-              final id = message.split(":")[1];
-              if (!discoveredNodes.containsKey(id)) {
-                discoveredNodes[id] = dg.address.address;
-                print("DEBUG: UDP Discovered Node: $id at ${dg.address.address}");
-                _checkAndNotifyKnownPeer(id, dg.address.address);
+              final parts = message.split(":");
+              if (parts.length >= 3) {
+                final id = parts[1];
+                final peerName = Uri.decodeComponent(parts[2]);
+                
+                // Skip self
+                if (id == _localPeerId) return;
+                
+                if (!discoveredNodes.containsKey(id)) {
+                  discoveredNodes[id] = {"ip": dg.address.address, "name": peerName};
+                  print("DEBUG: UDP Discovered Node: $id ($peerName) at ${dg.address.address}");
+                  _checkAndNotifyKnownPeer(id, dg.address.address);
+                } else if (discoveredNodes[id]!["name"] != peerName) {
+                  // Update name if changed
+                  discoveredNodes[id]!["name"] = peerName;
+                  discoveredNodes.refresh();
+                }
               }
             }
           }
@@ -91,9 +110,6 @@ class DiscoveryService extends GetxService {
   }
 
   Future<void> _checkAndNotifyKnownPeer(String peerId, String ip) async {
-    final user = await _db.getUser();
-    if (user?.peerId == peerId) return; // Don't discover self
-
     final session = await _db.isar.peerSessionCollections.filter().peerIdEqualTo(peerId).findFirst();
     if (session != null) {
       print("DEBUG: Known Peer $peerId discovered at $ip. Triggering Auto-Sync.");

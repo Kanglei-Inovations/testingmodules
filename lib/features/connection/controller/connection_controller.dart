@@ -22,6 +22,8 @@ import '../../../services/sync/sync_engine.dart';
 import '../../../services/background_service.dart';
 import '../../../services/signaling_service.dart';
 import '../../../services/discovery_service.dart';
+import '../../../widgets/neural_handshake_overlay.dart';
+import '../../../utils/sdp_compressor.dart';
 
 enum DiscoveryMode { manual, dht, lan }
 
@@ -144,13 +146,37 @@ class ConnectionController extends GetxController {
     });
 
     // Automated Signaling Listeners
-    _signaling.onRemoteSdpReceived = (sdp, ip) {
+    _signaling.onRemoteSdpReceived = (sdp, ip) async {
+      print("[DEBUG-CTRL] onRemoteSdpReceived triggered. Source IP: $ip");
       _activePeerIp.value = ip;
+      
+      try {
+        final decoded = await SdpCompressor.decode(sdp.trim());
+        final Map<String, dynamic> sdpMap = jsonDecode(decoded);
+        print("[DEBUG-CTRL] SDP type determined as: ${sdpMap["type"]}");
+        
+        if (sdpMap["type"] == "offer") {
+          print("[DEBUG-CTRL] Routing to NeuralHandshakeOverlay (isReceiving: true)");
+          Get.to(() => NeuralHandshakeOverlay(isReceiving: true), opaque: false);
+        } else if (sdpMap["type"] == "answer") {
+          print("[DEBUG-CTRL] Routing to NeuralHandshakeOverlay (isCompleting: true). Current handshakeStage: ${handshakeStage.value}");
+          if (handshakeStage.value == HandshakeStage.none) {
+             Get.to(() => NeuralHandshakeOverlay(isCompleting: true), opaque: false);
+          } else {
+             Get.off(() => NeuralHandshakeOverlay(isCompleting: true), opaque: false);
+          }
+        }
+      } catch (e) {
+        print("[DEBUG-CTRL] Error parsing network signal for UI: $e");
+        addLog("Error parsing network signal for UI: $e");
+      }
+      
       handleRemoteSdp(sdp);
     };
     
     _discovery.onKnownPeerDiscovered = (peerId, ip) {
       if (peerState.value == PeerState.idle || peerState.value == PeerState.offline) {
+        print("[DEBUG-CTRL] Auto-Discovery trigger. Known node $peerId at $ip");
         addLog("Auto-Discovery: Initiating link with known node $peerId at $ip");
         _activePeerIp.value = ip;
         createOffer();
@@ -163,10 +189,13 @@ class ConnectionController extends GetxController {
       checkedNodes.value = nodes.length * 15 + 3; // Simulated checked nodes for UI
     });
 
-    // Auto-send local SDP if we have an active peer IP
-    ever(localSdp, (sdp) {
-      if (sdp.isNotEmpty && _activePeerIp.value != null) {
-        _signaling.sendSdpToPeer(_activePeerIp.value!, sdp);
+    // Auto-send local SDP if we have an active peer IP and it's ready
+    ever(isSdpReady, (ready) {
+      print("[DEBUG-CTRL] isSdpReady state changed to: $ready. localSdp.isNotEmpty=${localSdp.value.isNotEmpty}, activeIp=${_activePeerIp.value}, mode=${discoveryMode.value}");
+      if (ready && localSdp.value.isNotEmpty && _activePeerIp.value != null && discoveryMode.value != DiscoveryMode.manual) {
+        print("[DEBUG-CTRL] Conditions met! Transmitting auto-SDP to ${_activePeerIp.value}");
+        addLog("SDP Ready. Transmitting to ${_activePeerIp.value}");
+        _signaling.sendSdpToPeer(_activePeerIp.value!, localSdp.value);
       }
     });
 
@@ -174,14 +203,17 @@ class ConnectionController extends GetxController {
   }
 
   void startDhtDiscovery() {
+    print("[DEBUG-CTRL] startDhtDiscovery() called.");
     peersFound.value = 0;
     checkedNodes.value = 0;
     _discovery.startDiscovery();
   }
 
   void connectToPeer(String peerId, String ip) {
+    print("[DEBUG-CTRL] connectToPeer() called. Target: $peerId, IP: $ip");
     addLog("Manual Connect: Initiating link with $peerId at $ip");
     _activePeerIp.value = ip;
+    isSdpReady.value = false;
     createOffer();
   }
 
@@ -251,7 +283,7 @@ class ConnectionController extends GetxController {
 
         RTCSessionDescription? localDescription = await _peerConnection.value!.getLocalDescription();
         if (localDescription != null) {
-          localSdp.value = _signaling.prepareSdpForSharing(localDescription);
+          localSdp.value = await _signaling.prepareSdpForSharing(localDescription);
           if (iceCandidates.length >= 2) {
              isSdpReady.value = true;
              if (handshakeStage.value != HandshakeStage.none && handshakeStage.value.index < HandshakeStage.ready.index) {
@@ -275,7 +307,8 @@ class ConnectionController extends GetxController {
 
       // Start Discovery & Broadcast
       if (localUser != null) {
-        _discovery.startBroadcast(localUser!.peerId);
+        final name = localUser!.name ?? "Unknown Node";
+        _discovery.startBroadcast(localUser!.peerId, name);
         _discovery.startDiscovery();
       }
     } catch (e) {
@@ -436,6 +469,7 @@ class ConnectionController extends GetxController {
   // --- ACTIONS ---
 
   Future<void> createOffer() async {
+    print("[DEBUG-CTRL] createOffer() initiated.");
     handshakeStage.value = HandshakeStage.initializing;
     await disposeNode();
     await initNode();
@@ -448,22 +482,26 @@ class ConnectionController extends GetxController {
     handshakeStage.value = HandshakeStage.generating;
     RTCSessionDescription offer = await _peerConnection.value!.createOffer();
     await _peerConnection.value!.setLocalDescription(offer);
+    print("[DEBUG-CTRL] createOffer() successfully created and set local description.");
   }
 
   Future<void> handleRemoteSdp(String rawSdp, {Function? onAnswerGenerated}) async {
+    print("[DEBUG-CTRL] handleRemoteSdp() invoked. isProcessingSdp: $_isProcessingSdp");
     if (_isProcessingSdp) return;
     _isProcessingSdp = true;
 
     try {
-      final decoded = SdpCompressor.decode(rawSdp.trim());
+      final decoded = await SdpCompressor.decode(rawSdp.trim());
       Map<String, dynamic> sdpMap = jsonDecode(decoded);
       final type = sdpMap["type"];
       final sdp = sdpMap["sdp"];
 
+      print("[DEBUG-CTRL] Remote SDP parsed. Type: $type");
       addLog("Processing remote $type. Current Signaling State: ${_peerConnection.value?.signalingState}");
 
       if (type == "answer") {
         if (_peerConnection.value?.signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+          print("[DEBUG-CTRL] ERROR: Received answer in invalid state: ${_peerConnection.value?.signalingState}");
           addLog("Aborting: Received answer while in state ${_peerConnection.value?.signalingState}");
           completionStage.value = CompletionStage.failed;
           return;
@@ -476,19 +514,24 @@ class ConnectionController extends GetxController {
       remoteSdp.value = decoded;
       peerState.value = PeerState.signaling;
       
+      print("[DEBUG-CTRL] Setting remote description...");
       await _peerConnection.value!.setRemoteDescription(RTCSessionDescription(sdp, type));
+      print("[DEBUG-CTRL] Remote description set successfully.");
       addLog("Remote description set successfully. State: ${_peerConnection.value?.signalingState}");
 
       if (type == "offer") {
+        print("[DEBUG-CTRL] Generating Answer...");
         receiveStage.value = ReceiveStage.generatingResponse;
         RTCSessionDescription answer = await _peerConnection.value!.createAnswer();
         await _peerConnection.value!.setLocalDescription(answer);
+        print("[DEBUG-CTRL] Answer generated and local description set.");
         
         receiveStage.value = ReceiveStage.preparingTunnel;
         receiveStage.value = ReceiveStage.ready;
         if (onAnswerGenerated != null) onAnswerGenerated();
       } else {
         // Device A receiving Answer - Cinematic Handshake
+        print("[DEBUG-CTRL] Processing Answer handshake animation...");
         completionStage.value = CompletionStage.synchronizing;
         await Future.delayed(const Duration(milliseconds: 800));
         

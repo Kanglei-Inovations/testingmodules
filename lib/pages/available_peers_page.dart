@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controller/connection_controller.dart';
-import '../../../services/discovery_service.dart';
-import '../../../utils/theme_colors.dart';
+import '../features/connection/controller/connection_controller.dart';
+import '../services/discovery_service.dart';
+import '../utils/theme_colors.dart';
+import '../widgets/neural_handshake_overlay.dart';
 
 class AvailablePeersPage extends StatelessWidget {
   const AvailablePeersPage({super.key});
@@ -51,22 +52,26 @@ class AvailablePeersPage extends StatelessWidget {
                   itemCount: discovery.discoveredNodes.length,
                   itemBuilder: (context, index) {
                     final peerId = discovery.discoveredNodes.keys.elementAt(index);
-                    final ip = discovery.discoveredNodes[peerId]!;
+                    final peerData = discovery.discoveredNodes[peerId]!;
+                    final ip = peerData["ip"]!;
+                    final peerName = peerData["name"] ?? peerId;
                     
                     // Mock signal strength for demo
                     final signalStr = index == 0 ? "Strong Signal" : "Medium Signal";
-                    final signalIcon = index == 0 ? Icons.signal_cellular_4_bar : Icons.signal_cellular_3_bar;
+                    final signalIcon = index == 0 ? Icons.signal_cellular_alt : Icons.network_cell;
                     final signalColor = index == 0 ? ThemeColors.terminalGreen : Colors.orangeAccent;
 
                     return _PeerListCard(
+                      peerName: peerName,
                       peerId: peerId,
                       signalText: signalStr,
                       signalIcon: signalIcon,
                       signalColor: signalColor,
                       onConnect: () {
-                         // Initiate connection via controller
-                         // controller.connectToPeer(peerId, ip);
-                         Get.snackbar("LINK INITIATED", "Attempting secure handshake with $peerId");
+                         print("[DEBUG-UI] 'CONNECT' tapped for peer: $peerName ($peerId) at IP: $ip");
+                         controller.connectToPeer(peerId, ip);
+                         Get.snackbar("LINK INITIATED", "Attempting secure handshake with $peerName");
+                         Get.to(() => NeuralHandshakeOverlay(), opaque: false);
                       },
                     );
                   },
@@ -87,6 +92,7 @@ class AvailablePeersPage extends StatelessWidget {
 }
 
 class _PeerListCard extends StatelessWidget {
+  final String peerName;
   final String peerId;
   final String signalText;
   final IconData signalIcon;
@@ -94,6 +100,7 @@ class _PeerListCard extends StatelessWidget {
   final VoidCallback onConnect;
 
   const _PeerListCard({
+    required this.peerName,
     required this.peerId,
     required this.signalText,
     required this.signalIcon,
@@ -128,8 +135,12 @@ class _PeerListCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  peerId,
+                  peerName,
                   style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1),
+                ),
+                Text(
+                  peerId,
+                  style: const TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 1),
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -143,6 +154,7 @@ class _PeerListCard extends StatelessWidget {
             ),
           ),
           ElevatedButton(
+
             onPressed: onConnect,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.transparent,

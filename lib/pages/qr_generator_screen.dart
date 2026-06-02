@@ -1,17 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../../utils/sdp_compressor.dart';
+import '../utils/sdp_compressor.dart';
 
-
-class QrGeneratorScreen extends StatelessWidget {
+class QrGeneratorScreen extends StatefulWidget {
   final String sdpData;
 
   const QrGeneratorScreen({super.key, required this.sdpData});
 
   @override
+  State<QrGeneratorScreen> createState() => _QrGeneratorScreenState();
+}
+
+class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
+  String? _compressedData;
+
+  @override
+  void initState() {
+    super.initState();
+    _compressData();
+  }
+
+  void _compressData() async {
+    final compressed = await SdpCompressor.encode(widget.sdpData);
+    if (mounted) {
+      setState(() {
+        _compressedData = compressed;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Compress data to ensure it fits in the QR safely
-    final compressedData = SdpCompressor.encode(sdpData);
     const neonCyan = Color(0xFF00FFFF);
 
     return Scaffold(
@@ -44,13 +63,18 @@ class QrGeneratorScreen extends StatelessWidget {
                   BoxShadow(color: neonCyan.withOpacity(0.2), blurRadius: 20)
                 ],
               ),
-              child: QrImageView(
-                data: compressedData,
-                version: QrVersions.auto,
-                size: 350.0,
-                backgroundColor: Colors.white,
-                errorCorrectionLevel: QrErrorCorrectLevel.L,
-              ),
+              child: _compressedData == null 
+                ? const SizedBox(
+                    width: 350, height: 350, 
+                    child: Center(child: CircularProgressIndicator(color: neonCyan))
+                  )
+                : QrImageView(
+                    data: _compressedData!,
+                    version: QrVersions.auto,
+                    size: 350.0,
+                    backgroundColor: Colors.white,
+                    errorCorrectionLevel: QrErrorCorrectLevel.L,
+                  ),
             ),
             const SizedBox(height: 30),
             const Text(

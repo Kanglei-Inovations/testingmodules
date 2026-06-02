@@ -28,50 +28,53 @@ class SignalingService extends GetxService {
   Future<void> _startSignalingServer() async {
     try {
       _server = await ServerSocket.bind(InternetAddress.anyIPv4, _port);
-      print("DEBUG: Signaling Server active on port $_port");
+      print("[DEBUG-SIG] Signaling Server active on port $_port");
       _server!.listen((Socket client) {
         final sourceIp = client.remoteAddress.address;
+        print("[DEBUG-SIG] TCP Connection accepted from: $sourceIp");
         client.listen((List<int> data) {
           final message = utf8.decode(data);
-          print("DEBUG: Received network signal from $sourceIp.");
+          print("[DEBUG-SIG] Received SDP data chunk from $sourceIp. Length: ${message.length}");
           if (onRemoteSdpReceived != null) {
             onRemoteSdpReceived!(message, sourceIp);
           }
         }, onDone: () => client.close());
       });
     } catch (e) {
-      print("DEBUG: Signaling Server Error: $e");
+      print("[DEBUG-SIG] Signaling Server Error: $e");
     }
   }
 
   /// Sends an SDP to a specific remote IP.
   Future<bool> sendSdpToPeer(String ip, String compressedSdp) async {
+    print("[DEBUG-SIG] sendSdpToPeer() called. Target IP: $ip, Data Length: ${compressedSdp.length}");
     try {
       final socket = await Socket.connect(ip, _port, timeout: const Duration(seconds: 3));
+      print("[DEBUG-SIG] Socket connected successfully to $ip:$_port");
       socket.write(compressedSdp);
       await socket.flush();
       await socket.close();
-      print("DEBUG: Dispatched signal to $ip");
+      print("[DEBUG-SIG] Data flushed and socket closed for $ip");
       return true;
     } catch (e) {
-      print("DEBUG: Failed to send signal to $ip: $e");
+      print("[DEBUG-SIG] Failed to send signal to $ip: $e");
       return false;
     }
   }
 
   /// Compresses a local SDP for transmission.
-  String prepareSdpForSharing(RTCSessionDescription description) {
+  Future<String> prepareSdpForSharing(RTCSessionDescription description) async {
     final sdpJson = jsonEncode({
       "sdp": description.sdp,
       "type": description.type,
     });
-    return SdpCompressor.encode(sdpJson);
+    return await SdpCompressor.encode(sdpJson);
   }
 
   /// Decompresses and parses a remote SDP.
-  Map<String, dynamic>? parseRemoteSdp(String rawSdp) {
+  Future<Map<String, dynamic>?> parseRemoteSdp(String rawSdp) async {
     try {
-      final decoded = SdpCompressor.decode(rawSdp.trim());
+      final decoded = await SdpCompressor.decode(rawSdp.trim());
       return jsonDecode(decoded) as Map<String, dynamic>;
     } catch (e) {
       print("Error parsing remote SDP: $e");

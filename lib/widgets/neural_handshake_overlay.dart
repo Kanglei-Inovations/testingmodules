@@ -5,8 +5,8 @@ import 'package:get/get.dart';
 import '../features/connection/controller/connection_controller.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/cyber_button.dart';
-import '../features/connection/ui/qr_generator_screen.dart';
-import '../features/connection/ui/qr_scanner_screen.dart';
+import '../pages/qr_generator_screen.dart';
+import '../pages/qr_scanner_screen.dart';
 import '../utils/sdp_compressor.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -311,8 +311,9 @@ class NeuralHandshakeOverlay extends StatelessWidget {
                 child: CyberButton(
                   label: "SHARE LINK",
                   color: ThemeColors.neonPurple,
-                  onPressed: () {
-                    Share.share(SdpCompressor.encode(sdp));
+                  onPressed: () async {
+                    final encoded = await SdpCompressor.encode(sdp);
+                    Share.share(encoded);
                     controller.handshakeStage.value = HandshakeStage.waitingForResponse;
                   },
                 ),
@@ -376,8 +377,10 @@ class NeuralHandshakeOverlay extends StatelessWidget {
               child: CyberButton(
                 label: "SHARE RESPONSE LINK",
                 color: ThemeColors.neonPurple,
-                onPressed: () => Share.share(SdpCompressor.encode(sdp)),
-              ),
+                onPressed: () async {
+                  final encoded = await SdpCompressor.encode(sdp);
+                  Share.share(encoded);
+                },              ),
             ),
           ],
         ).animate().fadeIn().slideY(begin: 0.2),

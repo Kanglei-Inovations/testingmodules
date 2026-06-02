@@ -13,8 +13,9 @@ import '../widgets/profile_dialog.dart';
 import '../widgets/neural_handshake_overlay.dart';
 import '../widgets/glow_sphere.dart';
 import 'chat_page.dart';
-import '../features/connection/ui/qr_generator_screen.dart';
-import '../features/connection/ui/qr_scanner_screen.dart';
+import 'qr_generator_screen.dart';
+import 'qr_scanner_screen.dart';
+import 'create_connect_page.dart';
 import '../utils/sdp_compressor.dart';
 
 class HomePage extends StatelessWidget {
@@ -99,7 +100,7 @@ class HomePage extends StatelessWidget {
           icon: Icons.add_circle_outline,
           color: ThemeColors.neonPurple,
           trailing: const Icon(Icons.add, color: Colors.white38, size: 18),
-          onPressed: () => Get.to(() => const CreateConnectPage()),
+          onPressed: () => Get.to(() => CreateConnectPage()),
         ),
         _QuickActionButton(
           label: "Join with QR / Link",
@@ -448,8 +449,8 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  void _processRemoteSdp(BuildContext context, String sdp) {
-    final decoded = SdpCompressor.decode(sdp);
+  void _processRemoteSdp(BuildContext context, String sdp) async {
+    final decoded = await SdpCompressor.decode(sdp);
     final Map<String, dynamic> sdpMap = jsonDecode(decoded);
     final type = sdpMap["type"];
 
@@ -501,14 +502,5 @@ class _QuickActionButton extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// Placeholder classes to be moved to separate files
-class CreateConnectPage extends StatelessWidget {
-  const CreateConnectPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(backgroundColor: ThemeColors.darkBg, body: Center(child: Text("Create / Connect Screen", style: TextStyle(color: Colors.white))));
   }
 }
