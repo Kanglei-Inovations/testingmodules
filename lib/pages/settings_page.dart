@@ -91,7 +91,7 @@ class SettingsPage extends StatelessWidget {
             height: 300,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: ThemeColors.neonCyan.withOpacity(0.05),
+              color: ThemeColors.neonCyan.withValues(alpha: 0.05),
             ),
           ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(duration: const Duration(seconds: 5), begin: const Offset(1, 1), end: const Offset(1.5, 1.5)),
         ),
@@ -147,7 +147,7 @@ class SettingsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: ThemeColors.glassBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: ThemeColors.neonCyan.withOpacity(0.3)),
+        border: Border.all(color: ThemeColors.neonCyan.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -377,7 +377,7 @@ class _SettingsSection extends StatelessWidget {
           decoration: BoxDecoration(
             color: ThemeColors.glassBg,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Column(children: children),
         ),
@@ -475,7 +475,7 @@ class _CyberOutlineButton extends StatelessWidget {
         width: width,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -19,6 +19,9 @@ class PeerSessionCollection {
   late bool reconnectEnabled;
   late DateTime lastSeen;
   String? lastSdp;
+  String? connectionMethod; // 'lan', 'manual', 'global'
+  String? lastSignalState;
+  List<String>? activeStunServers;
   
   @enumerated
   late SessionState sessionState;

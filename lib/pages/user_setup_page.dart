@@ -97,7 +97,7 @@ class _UserSetupPageState extends State<UserSetupPage> {
       Get.snackbar(
         "NEURAL LINK ERROR",
         e.toString(),
-        backgroundColor: Colors.redAccent.withOpacity(0.3),
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.3),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
@@ -189,12 +189,16 @@ class _UserSetupPageState extends State<UserSetupPage> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: ThemeColors.neonCyan, width: 2),
-              boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withOpacity(0.2), blurRadius: 15)],
+              boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withValues(alpha: 0.2), blurRadius: 15)],
             ),
             child: CircleAvatar(
               backgroundColor: Colors.white10,
-              backgroundImage: _photoPath != null ? FileImage(File(_photoPath!)) : null,
-              child: _photoPath == null ? const Icon(Icons.add_a_photo_outlined, color: ThemeColors.neonCyan, size: 30) : null,
+              backgroundImage: _photoPath != null && File(_photoPath!).existsSync()
+                  ? FileImage(File(_photoPath!)) 
+                  : null,
+              child: _photoPath == null || !File(_photoPath!).existsSync()
+                  ? const Icon(Icons.add_a_photo_outlined, color: ThemeColors.neonCyan, size: 30) 
+                  : null,
             ),
           ),
           Positioned(
@@ -215,7 +219,7 @@ class _UserSetupPageState extends State<UserSetupPage> {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.white10),
       ),
@@ -247,7 +251,7 @@ class _UserSetupPageState extends State<UserSetupPage> {
       decoration: BoxDecoration(
         color: ThemeColors.glassBg,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: ThemeColors.neonCyan.withOpacity(0.2)),
+        border: Border.all(color: ThemeColors.neonCyan.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -279,8 +283,8 @@ class _UserSetupPageState extends State<UserSetupPage> {
         width: double.infinity,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
-          gradient: LinearGradient(colors: [ThemeColors.neonCyan, ThemeColors.neonPurple.withOpacity(0.8)]),
-          boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withOpacity(0.2), blurRadius: 20)],
+          gradient: LinearGradient(colors: [ThemeColors.neonCyan, ThemeColors.neonPurple.withValues(alpha: 0.8)]),
+          boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withValues(alpha: 0.2), blurRadius: 20)],
         ),
         alignment: Alignment.center,
         child: const Text("INITIALIZE NODE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 3)),
@@ -301,7 +305,7 @@ class _CyberTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.white10),
       ),

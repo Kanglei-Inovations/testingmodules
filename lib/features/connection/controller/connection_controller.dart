@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' hide MessageType;
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide navigator;
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -12,20 +12,23 @@ import 'package:geolocator/geolocator.dart';
 import '../../../models/transfer_packet.dart';
 import '../../../services/file_transfer_manager.dart';
 import '../../../services/thumbnail_service.dart';
-import '../../../utils/sdp_compressor.dart';
-import '../../../features/connection/controller/settings_controller.dart';
+import 'settings_controller.dart';
 import '../../../data/collections/message_collection.dart';
 import '../../../data/collections/peer_session_collection.dart';
 import '../../../data/collections/user_collection.dart';
 import '../../../services/database_service.dart';
 import '../../../services/sync/sync_engine.dart';
-import '../../../services/background_service.dart';
-import '../../../services/signaling_service.dart';
-import '../../../services/discovery_service.dart';
-import '../../../widgets/neural_handshake_overlay.dart';
+import '../../../core/network/discovery_manager.dart';
+import '../../../core/network/webrtc_manager.dart';
+import '../../../core/network/transport_manager.dart';
+import '../../../core/network/call_manager.dart';
+import '../../../core/network/lan_signaling_provider.dart';
+import '../../../services/notification_service.dart';
+import '../../../widgets/incoming_call_dialog.dart';
+import '../../../pages/call_page.dart';
 import '../../../utils/sdp_compressor.dart';
 
-enum DiscoveryMode { manual, dht, lan }
+enum DiscoveryMode { manual, lan, global }
 
 enum PeerState {
   idle,
@@ -48,7 +51,7 @@ enum HandshakeStage {
   analyzing,       
   generating,      
   ready,
-  waitingForResponse // Device A waiting for Device B's answer
+  waitingForResponse
 }
 
 enum ReceiveStage {
@@ -72,495 +75,234 @@ enum CompletionStage {
 }
 
 class ConnectionController extends GetxController {
-  final _peerConnection = Rxn<RTCPeerConnection>();
-  final _dataChannel = Rxn<RTCDataChannel>();
-  final _fileManager = FileTransferManager();
   final _uuid = const Uuid();
   final SettingsController _settings = Get.find<SettingsController>();
   final DatabaseService _db = Get.find<DatabaseService>();
-  final SyncEngine _syncEngine = Get.put(SyncEngine());
-  final SignalingService _signaling = Get.put(SignalingService());
-  final DiscoveryService _discovery = Get.put(DiscoveryService());
+  final SyncEngine _syncEngine = Get.find<SyncEngine>();
+  final DiscoveryManager _discovery = Get.find<DiscoveryManager>();
+  final TransportManager _transport = Get.find<TransportManager>();
+  final WebRtcManager _webrtc = Get.find<WebRtcManager>();
+  final NotificationService _notifications = Get.find<NotificationService>();
+  final CallManager _callManager = Get.find<CallManager>();
 
-  bool _isProcessingSdp = false;
-
-  // Heartbeat & Presence
-  Timer? _heartbeatTimer;
-  Timer? _presenceMonitor;
-  final _lastHeartbeatReceived = Rxn<DateTime>();
-
-  // User Info
-  UserCollection? localUser;
-
+  final _fileManager = FileTransferManager();
+  
   // Observables
   var peerState = PeerState.idle.obs;
-  var discoveryMode = DiscoveryMode.dht.obs; // Default to DHT per image
+  var discoveryMode = DiscoveryMode.lan.obs;
   var handshakeStage = HandshakeStage.none.obs;
   var receiveStage = ReceiveStage.none.obs;
   var completionStage = CompletionStage.none.obs;
-
-  // DHT Stats
-  var peersFound = 0.obs;
-  var checkedNodes = 0.obs;
   var networkStatus = "Healthy".obs;
 
+  // Proxy getters for UI compatibility
+  RxString get localSdp => _webrtc.localSdp;
+  RxBool get isSdpReady => _webrtc.isSdpReady;
+  RxString get transportSpeed => _transport.transferSpeed;
+  RxString get discoveryStatus => _discovery.discoveryStatus;
+
+  // Call Proxy Getters
+  RxBool get isInCall => _callManager.isInCall;
+  RxBool get isIncomingCall => _callManager.isIncomingCall;
+  RxBool get isVideoCall => _callManager.isVideoCall;
+  RxBool get isMuted => _callManager.isMuted;
+  RxBool get isCameraOff => _callManager.isCameraOff;
+  RxString get remoteCallerName => _callManager.remoteCallerName;
+  Rxn<MediaStream> get localStream => _callManager.localStream;
+  Rxn<MediaStream> get remoteStream => _callManager.remoteStream;
+  RTCVideoRenderer get localRenderer => _callManager.localRenderer;
+  RTCVideoRenderer get remoteRenderer => _callManager.remoteRenderer;
+
+  // Local state
+  UserCollection? localUser;
   var messages = <MessageCollection>[].obs;
   var logs = <String>[].obs;
-  var localSdp = "".obs;
-  var remoteSdp = "".obs;
-  var iceCandidates = <String>[].obs;
-  var isSdpReady = false.obs;
-  
-  // Peer Resume State
   var activePeerSession = Rxn<PeerSessionCollection>();
-  var _activePeerIp = Rxn<String>();
+  var peersFound = 0.obs;
+  var checkedNodes = 0.obs;
 
   Map<String, dynamic> get _configuration => {
-    'iceServers': [
-      {'urls': _settings.activeStunUrls}
-    ],
+    'iceServers': [{'urls': _settings.activeStunUrls}],
     'iceCandidatePoolSize': 10,
   };
 
   @override
   void onInit() async {
     super.onInit();
-    localUser = await _db.getUser();
-    _bindMessages();
-    _loadLastSession();
-    _initPresenceMonitor();
-
-    ever(_settings.activeStunUrls, (_) {
-      if (peerState.value == PeerState.idle || peerState.value == PeerState.offline) {
-        disposeNode().then((_) => initNode());
-      }
-    });
-
-    // Start background service when connected
-    ever(peerState, (state) {
-      if (state == PeerState.connected) {
-        Get.find<BackgroundService>().startService();
-      } else if (state == PeerState.idle || state == PeerState.offline || state == PeerState.failed) {
-        Get.find<BackgroundService>().stopService();
-      }
-    });
-
-    // Automated Signaling Listeners
-    _signaling.onRemoteSdpReceived = (sdp, ip) async {
-      print("[DEBUG-CTRL] onRemoteSdpReceived triggered. Source IP: $ip");
-      _activePeerIp.value = ip;
+    try {
+      print("[DEBUG-CTRL] Initializing ConnectionController...");
+      localUser = await _db.getUser();
       
-      try {
-        final decoded = await SdpCompressor.decode(sdp.trim());
-        final Map<String, dynamic> sdpMap = jsonDecode(decoded);
-        print("[DEBUG-CTRL] SDP type determined as: ${sdpMap["type"]}");
-        
-        if (sdpMap["type"] == "offer") {
-          print("[DEBUG-CTRL] Routing to NeuralHandshakeOverlay (isReceiving: true)");
-          Get.to(() => NeuralHandshakeOverlay(isReceiving: true), opaque: false);
-        } else if (sdpMap["type"] == "answer") {
-          print("[DEBUG-CTRL] Routing to NeuralHandshakeOverlay (isCompleting: true). Current handshakeStage: ${handshakeStage.value}");
-          if (handshakeStage.value == HandshakeStage.none) {
-             Get.to(() => NeuralHandshakeOverlay(isCompleting: true), opaque: false);
-          } else {
-             Get.off(() => NeuralHandshakeOverlay(isCompleting: true), opaque: false);
-          }
+      _initManagers();
+      _bindMessages();
+      _loadLastSession();
+
+      // React to WebRtcManager state changes
+      _webrtc.state.listen((state) {
+        _updatePeerState(state);
+      });
+
+      // React to WebRtcManager handshake helpers
+      _webrtc.isSdpReady.listen((ready) {
+        if (ready && handshakeStage.value == HandshakeStage.generating) {
+          handshakeStage.value = HandshakeStage.ready;
         }
-      } catch (e) {
-        print("[DEBUG-CTRL] Error parsing network signal for UI: $e");
-        addLog("Error parsing network signal for UI: $e");
-      }
-      
-      handleRemoteSdp(sdp);
-    };
+      });
+
+      _discovery.discoveredNodes.listen((nodes) {
+        peersFound.value = nodes.length;
+        checkedNodes.value = nodes.length * 15 + 3;
+      });
+
+      await initNode();
+      print("[DEBUG-CTRL] ConnectionController Ready.");
+    } catch (e) {
+      print("[DEBUG-CTRL] Initialization Error: $e");
+    }
+  }
+
+  void _initManagers() {
+    _webrtc.init(LanSignalingProvider(), _transport, localPeerId: localUser?.peerId);
     
     _discovery.onKnownPeerDiscovered = (peerId, ip) {
       if (peerState.value == PeerState.idle || peerState.value == PeerState.offline) {
-        print("[DEBUG-CTRL] Auto-Discovery trigger. Known node $peerId at $ip");
-        addLog("Auto-Discovery: Initiating link with known node $peerId at $ip");
-        _activePeerIp.value = ip;
-        createOffer();
+        print("[DEBUG-CTRL] Auto-reconnecting to known peer: $peerId at $ip");
+        resumeSession(peerId, ip: ip);
       }
     };
 
-    // Update discovery stats
-    _discovery.discoveredNodes.listen((nodes) {
-      peersFound.value = nodes.length;
-      checkedNodes.value = nodes.length * 15 + 3; // Simulated checked nodes for UI
-    });
+    _transport.onSyncPacketReceived = (payload) async {
+      peerState.value = PeerState.syncing;
+      await _syncEngine.processSyncPacket(jsonDecode(payload));
+      peerState.value = PeerState.connected;
+    };
 
-    // Auto-send local SDP if we have an active peer IP and it's ready
-    ever(isSdpReady, (ready) {
-      print("[DEBUG-CTRL] isSdpReady state changed to: $ready. localSdp.isNotEmpty=${localSdp.value.isNotEmpty}, activeIp=${_activePeerIp.value}, mode=${discoveryMode.value}");
-      if (ready && localSdp.value.isNotEmpty && _activePeerIp.value != null && discoveryMode.value != DiscoveryMode.manual) {
-        print("[DEBUG-CTRL] Conditions met! Transmitting auto-SDP to ${_activePeerIp.value}");
-        addLog("SDP Ready. Transmitting to ${_activePeerIp.value}");
-        _signaling.sendSdpToPeer(_activePeerIp.value!, localSdp.value);
-      }
-    });
+    _transport.onCallPacketReceived = (json) => _handleIncomingCallPacket(json);
 
-    initNode();
+    _transport.onTransferProgress = (id, p, isIncoming, type, msgId) => 
+        _updateProgress(id, p, isIncoming: isIncoming, type: type, messageId: msgId);
+
+    _transport.onTransferComplete = (id, {imageUrl, filePath, text}) => 
+        _updateMessageForTransfer(id, imageUrl: imageUrl, filePath: filePath, text: text);
+
+    _transport.lastHeartbeatReceived.listen((_) {
+      if (peerState.value == PeerState.stale) peerState.value = PeerState.connected;
+    });
   }
 
-  void startDhtDiscovery() {
-    print("[DEBUG-CTRL] startDhtDiscovery() called.");
+  Future<void> resumeSession(String peerId, {String? ip}) async {
+    final session = await _db.isar.peerSessionCollections.filter().peerIdEqualTo(peerId).findFirst();
+    if (session == null) return;
+
+    print("[DEBUG-CTRL] Attempting to resume session for $peerId");
+    peerState.value = PeerState.reconnecting;
+    
+    // 1. Validate peer availability (if IP is provided, use it)
+    final targetIp = ip ?? session.address;
+    if (targetIp == null) {
+      print("[DEBUG-CTRL] No IP for resumption. Falling back to discovery.");
+      startLanDiscovery();
+      return;
+    }
+
+    // 2. Attempt reconnect
+    try {
+      addLog("Resuming connection to $peerId...");
+      await _webrtc.dispose();
+      await initNode();
+      
+      // Use stored STUN if available
+      if (session.activeStunServers != null && session.activeStunServers!.isNotEmpty) {
+        // Temporary override of configuration for this attempt
+      }
+
+      await _webrtc.createOffer();
+      
+      // 3. Timeout after 15 seconds
+      Timer(const Duration(seconds: 15), () {
+        if (peerState.value != PeerState.connected && peerState.value != PeerState.syncing) {
+          print("[DEBUG-CTRL] Resumption timed out.");
+          if (peerState.value == PeerState.reconnecting) {
+            peerState.value = PeerState.failed;
+            addLog("Resumption timed out. Fallback required.");
+          }
+        }
+      });
+      
+    } catch (e) {
+      print("[DEBUG-CTRL] Resumption failed: $e");
+      peerState.value = PeerState.failed;
+    }
+  }
+
+  void _updatePeerState(WebRtcState state) {
+    switch (state) {
+      case WebRtcState.connected: peerState.value = PeerState.connected; break;
+      case WebRtcState.connecting: peerState.value = PeerState.connecting; break;
+      case WebRtcState.gathering: peerState.value = PeerState.gatheringIce; break;
+      case WebRtcState.signaling: peerState.value = PeerState.signaling; break;
+      case WebRtcState.reconnecting: peerState.value = PeerState.reconnecting; break;
+      case WebRtcState.offline: peerState.value = PeerState.offline; break;
+      case WebRtcState.failed: peerState.value = PeerState.failed; break;
+      case WebRtcState.idle: peerState.value = PeerState.idle; break;
+    }
+  }
+
+  Future<void> initNode() async {
+    await _webrtc.initialize(_configuration);
+    if (localUser != null) {
+      _discovery.startBroadcast(localUser!.peerId, localUser!.name ?? "Unknown");
+      _discovery.startDiscovery();
+    }
+  }
+
+  Future<void> createOffer() async {
+    handshakeStage.value = HandshakeStage.initializing;
+    await _webrtc.dispose();
+    await initNode();
+    handshakeStage.value = HandshakeStage.generating;
+    await _webrtc.createOffer();
+  }
+
+  Future<void> handleRemoteSdp(String rawSdp, {Function? onAnswerGenerated}) async {
+    if (peerState.value == PeerState.connecting || peerState.value == PeerState.connected) return;
+    
+    addLog("Processing remote SDP...");
+    if (rawSdp.contains('"type":"offer"')) {
+      receiveStage.value = ReceiveStage.receiving;
+    } else {
+      completionStage.value = CompletionStage.verifying;
+    }
+
+    await _webrtc.handleRemoteSdp(rawSdp);
+    
+    if (rawSdp.contains('"type":"offer"')) {
+      receiveStage.value = ReceiveStage.ready;
+      if (onAnswerGenerated != null) onAnswerGenerated();
+    } else {
+      completionStage.value = CompletionStage.ready;
+      await Future.delayed(const Duration(seconds: 1));
+      Get.until((route) => route.isFirst);
+      completionStage.value = CompletionStage.none;
+    }
+  }
+
+  void startLanDiscovery() {
     peersFound.value = 0;
     checkedNodes.value = 0;
     _discovery.startDiscovery();
   }
 
   void connectToPeer(String peerId, String ip) {
-    print("[DEBUG-CTRL] connectToPeer() called. Target: $peerId, IP: $ip");
-    addLog("Manual Connect: Initiating link with $peerId at $ip");
-    _activePeerIp.value = ip;
-    isSdpReady.value = false;
-    createOffer();
-  }
-
-  @override
-  void onClose() {
-    _heartbeatTimer?.cancel();
-    _presenceMonitor?.cancel();
-    _discovery.stopDiscovery();
-    disposeNode();
-    super.onClose();
-  }
-
-  void _bindMessages() async {
-    messages.value = await _db.getMessages();
-    _db.watchMessagesLazy().listen((_) async {
-      messages.value = await _db.getMessages();
-    });
-  }
-
-  Future<void> _loadLastSession() async {
-    final session = await _db.getLastSession();
-    if (session != null) {
-      activePeerSession.value = session;
-      addLog("Restored session metadata for node: ${session.peerId}");
-    }
-  }
-
-  void addLog(String message) {
-    final timestamp = DateTime.now().toIso8601String().split('T')[1].substring(0, 8);
-    logs.add("[$timestamp] $message");
-    _db.saveLog(message);
-    print("DEBUG: $message");
-  }
-
-  // --- NODE LIFECYCLE ---
-
-  Future<void> initNode() async {
-    if (_peerConnection.value != null) return;
-    peerState.value = PeerState.idle;
-    
-    try {
-      _peerConnection.value = await createPeerConnection(_configuration);
-
-      _peerConnection.value!.onIceGatheringState = (state) {
-        if (state == RTCIceGatheringState.RTCIceGatheringStateGathering) {
-          peerState.value = PeerState.gatheringIce;
-          if (handshakeStage.value != HandshakeStage.none && handshakeStage.value.index < HandshakeStage.discovering.index) {
-            handshakeStage.value = HandshakeStage.discovering;
-          }
-        }
-        if (state == RTCIceGatheringState.RTCIceGatheringStateComplete) {
-          isSdpReady.value = true;
-          if (handshakeStage.value != HandshakeStage.none && handshakeStage.value.index < HandshakeStage.ready.index) {
-            handshakeStage.value = HandshakeStage.ready;
-          }
-          if (receiveStage.value != ReceiveStage.none && receiveStage.value.index < ReceiveStage.ready.index) {
-            receiveStage.value = ReceiveStage.ready;
-          }
-        }
-      };
-
-      _peerConnection.value!.onIceCandidate = (candidate) async {
-        iceCandidates.add(candidate.candidate ?? "");
-        if (handshakeStage.value != HandshakeStage.none && handshakeStage.value.index < HandshakeStage.analyzing.index) {
-          handshakeStage.value = HandshakeStage.analyzing;
-        }
-
-        RTCSessionDescription? localDescription = await _peerConnection.value!.getLocalDescription();
-        if (localDescription != null) {
-          localSdp.value = await _signaling.prepareSdpForSharing(localDescription);
-          if (iceCandidates.length >= 2) {
-             isSdpReady.value = true;
-             if (handshakeStage.value != HandshakeStage.none && handshakeStage.value.index < HandshakeStage.ready.index) {
-               handshakeStage.value = HandshakeStage.ready;
-             }
-             if (receiveStage.value != ReceiveStage.none && receiveStage.value.index < ReceiveStage.ready.index) {
-               receiveStage.value = ReceiveStage.ready;
-             }
-          }
-        }
-      };
-
-      _peerConnection.value!.onConnectionState = (state) {
-        _handleConnectionStateChange(state);
-      };
-
-      _peerConnection.value!.onDataChannel = (channel) {
-        _dataChannel.value = channel;
-        _setupDataChannel();
-      };
-
-      // Start Discovery & Broadcast
-      if (localUser != null) {
-        final name = localUser!.name ?? "Unknown Node";
-        _discovery.startBroadcast(localUser!.peerId, name);
-        _discovery.startDiscovery();
-      }
-    } catch (e) {
-      addLog("Node Init Failure: $e");
-      peerState.value = PeerState.failed;
-    }
-  }
-
-  Future<void> disposeNode() async {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = null;
-    await _dataChannel.value?.close();
-    await _peerConnection.value?.close();
-    _dataChannel.value = null;
-    _peerConnection.value = null;
-    localSdp.value = "";
-    isSdpReady.value = false;
-    iceCandidates.clear();
-    handshakeStage.value = HandshakeStage.none;
-    receiveStage.value = ReceiveStage.none;
-    completionStage.value = CompletionStage.none;
-  }
-
-  // --- CONNECTION HANDLING ---
-
-  void _handleConnectionStateChange(RTCPeerConnectionState state) {
-    switch (state) {
-      case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
-        peerState.value = PeerState.connected;
-        _handleSuccessfulConnection();
-        _startHeartbeat();
-        
-        // Auto-close for Device B when connection establishes
-        if (receiveStage.value == ReceiveStage.ready && completionStage.value == CompletionStage.none) {
-          Get.until((route) => route.isFirst);
-          Get.snackbar(
-            "NEURAL LINK ESTABLISHED",
-            "Node synchronized successfully.",
-            backgroundColor: const Color(0xFF00FF41).withOpacity(0.5),
-            colorText: Colors.white,
-            snackPosition: SnackPosition.BOTTOM,
-          );
-          receiveStage.value = ReceiveStage.none;
-          handshakeStage.value = HandshakeStage.none;
-        }
-        break;
-      case RTCPeerConnectionState.RTCPeerConnectionStateConnecting:
-        peerState.value = PeerState.connecting;
-        break;
-      case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
-      case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
-        peerState.value = PeerState.reconnecting;
-        _heartbeatTimer?.cancel();
-        _heartbeatTimer = null;
-        break;
-      case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
-        peerState.value = PeerState.offline;
-        break;
-      default:
-        break;
-    }
-  }
-
-  void _setupDataChannel() {
-    if (_dataChannel.value == null) return;
-
-    _dataChannel.value!.onMessage = (message) async {
-      try {
-        final Map<String, dynamic> json = jsonDecode(message.text);
-        if (json['type'] == PacketType.heartbeat.name) {
-          _lastHeartbeatReceived.value = DateTime.now();
-          if (peerState.value == PeerState.stale || peerState.value == PeerState.reconnecting) {
-            peerState.value = PeerState.connected;
-          }
-          return;
-        }
-        if (json['type'] == 'db_sync') {
-          peerState.value = PeerState.syncing;
-          await _syncEngine.processSyncPacket(json['payload']);
-          peerState.value = PeerState.connected;
-          return;
-        }
-        final packet = TransferPacket.fromJson(json);
-        if (packet.type == PacketType.image_meta || packet.type == PacketType.image_chunk ||
-            packet.type == PacketType.file_meta || packet.type == PacketType.file_chunk) {
-          final file = await _fileManager.handleIncomingPacket(
-            message.text, 
-            onProgress: (id, p, msgId) => _updateProgress(id, p, isIncoming: true, type: (packet.type == PacketType.image_meta || packet.type == PacketType.image_chunk) ? MessageType.image : MessageType.file, messageId: msgId)
-          );
-          if (file != null) {
-            String? thumbPath;
-            if (ThumbnailService.isVideo(file.path)) {
-              thumbPath = await ThumbnailService.generateVideoThumbnail(file.path);
-            } else if (ThumbnailService.isPdf(file.path)) {
-              thumbPath = await ThumbnailService.generatePdfThumbnail(file.path);
-            }
-            _updateMessageForTransfer(packet.transferId, imageUrl: thumbPath ?? file.path, filePath: file.path, text: file.path.split(Platform.pathSeparator).last);
-          }
-        }
-      } catch (e) {
-        addLog("Data Stream Error: $e");
-      }
-    };
-    
-    _dataChannel.value!.onDataChannelState = (state) {
-      if (state == RTCDataChannelState.RTCDataChannelOpen) {
-        peerState.value = PeerState.connected;
-        if (localUser != null) {
-          _syncEngine.init(localUser!.peerId, (payload) {
-            _dataChannel.value?.send(RTCDataChannelMessage(payload));
-          });
-        }
-        _startHeartbeat();
-      }
-    };
-  }
-
-  // --- HEARTBEAT & PRESENCE ---
-
-  void _startHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (peerState.value == PeerState.connected || peerState.value == PeerState.syncing) {
-        _sendHeartbeat();
-      }
-    });
-  }
-
-  void _sendHeartbeat() {
-    if (_dataChannel.value?.state == RTCDataChannelState.RTCDataChannelOpen) {
-      final packet = {
-        "type": PacketType.heartbeat.name,
-        "peerId": localUser?.peerId,
-        "timestamp": DateTime.now().millisecondsSinceEpoch
-      };
-      _dataChannel.value?.send(RTCDataChannelMessage(jsonEncode(packet)));
-    }
-  }
-
-  void _initPresenceMonitor() {
-    _presenceMonitor = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (peerState.value == PeerState.idle || peerState.value == PeerState.offline) return;
-      final lastSeen = _lastHeartbeatReceived.value;
-      if (lastSeen == null) return;
-      final diff = DateTime.now().difference(lastSeen).inSeconds;
-      if (diff > 60) {
-        if (peerState.value != PeerState.offline) {
-          peerState.value = PeerState.offline;
-        }
-      } else if (diff > 30) {
-        if (peerState.value != PeerState.stale) {
-          peerState.value = PeerState.stale;
-        }
-      }
-    });
+    addLog("Connecting to $peerId at $ip");
+    _webrtc.dispose();
+    initNode().then((_) => _webrtc.createOffer());
   }
 
   // --- ACTIONS ---
 
-  Future<void> createOffer() async {
-    print("[DEBUG-CTRL] createOffer() initiated.");
-    handshakeStage.value = HandshakeStage.initializing;
-    await disposeNode();
-    await initNode();
-    
-    peerState.value = PeerState.signaling;
-    RTCDataChannelInit init = RTCDataChannelInit();
-    _dataChannel.value = await _peerConnection.value!.createDataChannel("chat", init);
-    _setupDataChannel();
-
-    handshakeStage.value = HandshakeStage.generating;
-    RTCSessionDescription offer = await _peerConnection.value!.createOffer();
-    await _peerConnection.value!.setLocalDescription(offer);
-    print("[DEBUG-CTRL] createOffer() successfully created and set local description.");
-  }
-
-  Future<void> handleRemoteSdp(String rawSdp, {Function? onAnswerGenerated}) async {
-    print("[DEBUG-CTRL] handleRemoteSdp() invoked. isProcessingSdp: $_isProcessingSdp");
-    if (_isProcessingSdp) return;
-    _isProcessingSdp = true;
-
-    try {
-      final decoded = await SdpCompressor.decode(rawSdp.trim());
-      Map<String, dynamic> sdpMap = jsonDecode(decoded);
-      final type = sdpMap["type"];
-      final sdp = sdpMap["sdp"];
-
-      print("[DEBUG-CTRL] Remote SDP parsed. Type: $type");
-      addLog("Processing remote $type. Current Signaling State: ${_peerConnection.value?.signalingState}");
-
-      if (type == "answer") {
-        if (_peerConnection.value?.signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
-          print("[DEBUG-CTRL] ERROR: Received answer in invalid state: ${_peerConnection.value?.signalingState}");
-          addLog("Aborting: Received answer while in state ${_peerConnection.value?.signalingState}");
-          completionStage.value = CompletionStage.failed;
-          return;
-        }
-        completionStage.value = CompletionStage.verifying;
-      } else {
-        receiveStage.value = ReceiveStage.receiving;
-      }
-      
-      remoteSdp.value = decoded;
-      peerState.value = PeerState.signaling;
-      
-      print("[DEBUG-CTRL] Setting remote description...");
-      await _peerConnection.value!.setRemoteDescription(RTCSessionDescription(sdp, type));
-      print("[DEBUG-CTRL] Remote description set successfully.");
-      addLog("Remote description set successfully. State: ${_peerConnection.value?.signalingState}");
-
-      if (type == "offer") {
-        print("[DEBUG-CTRL] Generating Answer...");
-        receiveStage.value = ReceiveStage.generatingResponse;
-        RTCSessionDescription answer = await _peerConnection.value!.createAnswer();
-        await _peerConnection.value!.setLocalDescription(answer);
-        print("[DEBUG-CTRL] Answer generated and local description set.");
-        
-        receiveStage.value = ReceiveStage.preparingTunnel;
-        receiveStage.value = ReceiveStage.ready;
-        if (onAnswerGenerated != null) onAnswerGenerated();
-      } else {
-        // Device A receiving Answer - Cinematic Handshake
-        print("[DEBUG-CTRL] Processing Answer handshake animation...");
-        completionStage.value = CompletionStage.synchronizing;
-        await Future.delayed(const Duration(milliseconds: 800));
-        
-        completionStage.value = CompletionStage.establishing;
-        await Future.delayed(const Duration(milliseconds: 800));
-        
-        completionStage.value = CompletionStage.openingChannel;
-        await Future.delayed(const Duration(milliseconds: 800));
-        
-        completionStage.value = CompletionStage.ready;
-        await Future.delayed(const Duration(seconds: 2));
-        
-        Get.until((route) => route.isFirst);
-        
-        completionStage.value = CompletionStage.none; 
-        handshakeStage.value = HandshakeStage.none;
-      }
-    } catch (e) {
-      addLog("Handshake Error: $e");
-      peerState.value = PeerState.failed;
-      if (completionStage.value != CompletionStage.none) completionStage.value = CompletionStage.failed;
-      if (receiveStage.value != ReceiveStage.none) receiveStage.value = ReceiveStage.failed;
-    } finally {
-      _isProcessingSdp = false;
-    }
-  }
-
   void sendMessage(String text, {MessageType type = MessageType.text}) async {
-    if (text.trim().isEmpty || (peerState.value != PeerState.connected && peerState.value != PeerState.syncing)) return;
+    if (text.trim().isEmpty || peerState.value != PeerState.connected) return;
     final msgId = _uuid.v4();
     final msg = MessageCollection()
       ..messageId = msgId
@@ -572,6 +314,9 @@ class ConnectionController extends GetxController {
       ..originPeerId = localUser?.peerId ?? "me"
       ..isSynced = false;
     await _db.saveMessage(msg);
+    
+    final packet = TransferPacket(type: PacketType.text_msg, transferId: _uuid.v4(), messageId: msgId, data: text);
+    _transport.sendPacket(packet.encode(), channel: TransportChannel.control);
   }
 
   Future<void> sendImage({ImageSource source = ImageSource.gallery}) async {
@@ -580,7 +325,7 @@ class ConnectionController extends GetxController {
     await _fileManager.sendImage(
       messageId: msgId,
       source: source,
-      sendPacket: (p) => _dataChannel.value?.send(RTCDataChannelMessage(p)),
+      sendPacket: (p, isBinary) => _transport.sendPacket(p, channel: TransportChannel.media, isBinary: isBinary),
       onProgress: (id, p, mId) => _updateProgress(id, p, isIncoming: false, type: MessageType.image, messageId: mId),
     );
   }
@@ -601,7 +346,7 @@ class ConnectionController extends GetxController {
       final transferId = await _fileManager.sendFile(
         messageId: msgId,
         file: file,
-        sendPacket: (p) => _dataChannel.value?.send(RTCDataChannelMessage(p)),
+        sendPacket: (p, isBinary) => _transport.sendPacket(p, channel: TransportChannel.media, isBinary: isBinary),
         onProgress: (id, p, mId) => _updateProgress(id, p, isIncoming: false, type: MessageType.file, messageId: mId),
       );
       
@@ -615,89 +360,96 @@ class ConnectionController extends GetxController {
     if (peerState.value != PeerState.connected) return;
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
-
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return;
     }
-
-    Position position = await Geolocator.getCurrentPosition();
-    final locStr = "LAT: ${position.latitude.toStringAsFixed(4)}, LNG: ${position.longitude.toStringAsFixed(4)}";
-    sendMessage(locStr, type: MessageType.location);
+    Position pos = await Geolocator.getCurrentPosition();
+    sendMessage("LAT: ${pos.latitude.toStringAsFixed(4)}, LNG: ${pos.longitude.toStringAsFixed(4)}", type: MessageType.location);
   }
 
-  Future<void> sendContact() async {
-    if (peerState.value != PeerState.connected) return;
-    // Mocking contact for now as per "before" logic or simple prompt
-    sendMessage("Shared Contact: Node Admin (+91 9481924680)", type: MessageType.contact);
-  }
+  // --- CALL MEDIA HANDLING ---
 
-  Future<void> sendCode(String code) async {
-    sendMessage(code, type: MessageType.code);
-  }
-
-  void _handleSuccessfulConnection() async {
-    _lastHeartbeatReceived.value = DateTime.now();
-  }
-
-  void _updateProgress(String transferId, double progress, {required bool isIncoming, MessageType type = MessageType.image, String? messageId}) async {
-    // 1. Try memory lookup
-    var existing = messages.firstWhereOrNull((m) => m.transferId == transferId);
+  void _handleIncomingCallPacket(Map<String, dynamic> json) async {
+    final type = json['type'] as String;
+    final wasAlreadyInCall = _callManager.isInCall.value;
     
-    // 2. Try DB lookup (crucial for the first chunk/meta)
-    if (existing == null) {
-      if (messageId != null) {
-        existing = await _db.isar.messageCollections.filter().messageIdEqualTo(messageId).findFirst();
-      }
-      if (existing == null) {
-        existing = await _db.isar.messageCollections.filter().transferIdEqualTo(transferId).findFirst();
-      }
+    _callManager.handleIncomingCallPacket(json);
+    
+    if (type == PacketType.call_request.name && !wasAlreadyInCall) {
+      Get.dialog(const IncomingCallDialog(), barrierDismissible: false);
+    } else if (type == PacketType.call_accept.name) {
+      Get.to(() => const CallPage());
+    } else if (type == PacketType.call_reject.name || type == PacketType.call_end.name) {
+      Get.back();
     }
+  }
 
+  Future<void> startCall(bool video) async {
+    if (peerState.value != PeerState.connected || isInCall.value) return;
+    await _callManager.startCall(video, localUser?.name ?? "Unknown");
+    Get.to(() => const CallPage());
+  }
+
+  Future<void> acceptCall() async {
+    Get.back();
+    await _callManager.acceptCall();
+    Get.to(() => const CallPage());
+  }
+
+  void rejectCall() {
+    Get.back();
+    _callManager.rejectCall();
+  }
+
+  void toggleMute() => _callManager.toggleMute();
+  void toggleCamera() => _callManager.toggleCamera();
+
+  void endCall() {
+    _callManager.endCall();
+    Get.back();
+  }
+
+  // --- LOGS & DB ---
+
+  void addLog(String message) {
+    final timestamp = DateTime.now().toIso8601String().split('T')[1].substring(0, 8);
+    logs.add("[$timestamp] $message");
+    _db.saveLog(message);
+  }
+
+  void _bindMessages() async {
+    messages.value = await _db.getMessages();
+    _db.watchMessagesLazy().listen((_) async => messages.value = await _db.getMessages());
+  }
+
+  Future<void> _loadLastSession() async {
+    final session = await _db.getLastSession();
+    if (session != null) activePeerSession.value = session;
+  }
+
+  void _updateProgress(String id, double p, {required bool isIncoming, MessageType type = MessageType.image, String? messageId}) async {
+    var existing = messages.firstWhereOrNull((m) => m.transferId == id) ?? 
+                   await _db.isar.messageCollections.filter().transferIdEqualTo(id).findFirst();
     if (existing != null) {
-      await _db.isar.writeTxn(() async {
-        existing!.progress = progress;
-        if (existing!.transferId == null) existing!.transferId = transferId;
-        await _db.isar.messageCollections.put(existing!);
-      });
+      await _db.isar.writeTxn(() async { existing.progress = p; await _db.isar.messageCollections.put(existing); });
     } else {
-      final msg = MessageCollection()
-        ..messageId = messageId ?? _uuid.v4()
-        ..transferId = transferId
-        ..type = type
-        ..isMe = !isIncoming
-        ..timestamp = DateTime.now()
-        ..progress = progress
-        ..originPeerId = isIncoming ? "peer" : (localUser?.peerId ?? "me")
-        ..isSynced = false;
+      final msg = MessageCollection()..messageId = messageId ?? _uuid.v4()..transferId = id..type = type..isMe = !isIncoming..timestamp = DateTime.now()..progress = p..originPeerId = isIncoming ? "peer" : (localUser?.peerId ?? "me")..isSynced = false;
       await _db.saveMessage(msg);
     }
   }
 
-  void _updateMessageForTransfer(String transferId, {String? imageUrl, String? filePath, String? text}) async {
-    var existing = messages.firstWhereOrNull((m) => m.transferId == transferId);
-    
-    if (existing == null) {
-      existing = await _db.isar.messageCollections.filter().transferIdEqualTo(transferId).findFirst();
-    }
-
+  void _updateMessageForTransfer(String id, {String? imageUrl, String? filePath, String? text}) async {
+    var existing = messages.firstWhereOrNull((m) => m.transferId == id) ?? 
+                   await _db.isar.messageCollections.filter().transferIdEqualTo(id).findFirst();
     if (existing != null) {
-      await _db.isar.writeTxn(() async {
-        existing!.progress = 1.0;
-        if (imageUrl != null) existing!.imageUrl = imageUrl;
-        if (filePath != null) existing!.filePath = filePath;
-        if (text != null) existing!.text = text;
-        await _db.isar.messageCollections.put(existing!);
-      });
+      await _db.isar.writeTxn(() async { existing.progress = 1.0; if (imageUrl != null) existing.imageUrl = imageUrl; if (filePath != null) existing.filePath = filePath; if (text != null) existing.text = text; await _db.isar.messageCollections.put(existing); });
     }
   }
 
-  void reset() async {
-    addLog("Emergency Node Reset...");
-    await disposeNode();
-    messages.clear();
-    peerState.value = PeerState.idle;
-    await initNode();
-  }
+  void reset() async { addLog("Emergency Node Reset..."); await _webrtc.dispose(); messages.clear(); peerState.value = PeerState.idle; await initNode(); }
+  
+  @override
+  void onClose() { _discovery.stopDiscovery(); _webrtc.dispose(); super.onClose(); }
 }

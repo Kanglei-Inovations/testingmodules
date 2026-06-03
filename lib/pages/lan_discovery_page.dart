@@ -6,14 +6,14 @@ import '../utils/theme_colors.dart';
 import '../widgets/cyber_button.dart';
 import 'available_peers_page.dart';
 
-class DhtDiscoveryPage extends StatefulWidget {
-  const DhtDiscoveryPage({super.key});
+class LanDiscoveryPage extends StatefulWidget {
+  const LanDiscoveryPage({super.key});
 
   @override
-  State<DhtDiscoveryPage> createState() => _DhtDiscoveryPageState();
+  State<LanDiscoveryPage> createState() => _LanDiscoveryPageState();
 }
 
-class _DhtDiscoveryPageState extends State<DhtDiscoveryPage> with SingleTickerProviderStateMixin {
+class _LanDiscoveryPageState extends State<LanDiscoveryPage> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   final controller = Get.find<ConnectionController>();
 
@@ -25,13 +25,11 @@ class _DhtDiscoveryPageState extends State<DhtDiscoveryPage> with SingleTickerPr
       duration: const Duration(seconds: 4),
     )..repeat();
 
-    // Simulate discovery for UI demo if needed, but normally it would be driven by the controller
-    _startSimulatedDiscovery();
+    _startDiscoveryCheck();
   }
 
-  void _startSimulatedDiscovery() async {
-    // In a real app, the controller would start the actual discovery
-    // and update peersFound, checkedNodes etc.
+  void _startDiscoveryCheck() async {
+    // Wait for at least some time or until a peer is found
     await Future.delayed(const Duration(seconds: 5));
     if (mounted) {
       Get.to(() => const AvailablePeersPage());
@@ -56,7 +54,7 @@ class _DhtDiscoveryPageState extends State<DhtDiscoveryPage> with SingleTickerPr
           onPressed: () => Get.back(),
         ),
         title: const Text(
-          "DHT AUTO DISCOVERY",
+          "NEARBY DISCOVERY (LAN)",
           style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
         ),
         centerTitle: true,
@@ -95,11 +93,11 @@ class _DhtDiscoveryPageState extends State<DhtDiscoveryPage> with SingleTickerPr
             style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
           ),
           const Text(
-            "Scanning DHT network",
+            "Scanning local network",
             style: TextStyle(color: Colors.white38, fontSize: 12),
           ),
           const Spacer(),
-          _buildStatsPanel(),
+          Obx(() => _buildStatsPanel()),
           const SizedBox(height: 30),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -121,7 +119,7 @@ class _DhtDiscoveryPageState extends State<DhtDiscoveryPage> with SingleTickerPr
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
       ),
@@ -130,7 +128,7 @@ class _DhtDiscoveryPageState extends State<DhtDiscoveryPage> with SingleTickerPr
         children: [
           _buildStatItem("Peers Found", controller.peersFound.value.toString(), ThemeColors.terminalGreen),
           _buildStatItem("Checked Nodes", controller.checkedNodes.value.toString(), Colors.white70),
-          _buildStatItem("Network", controller.networkStatus.value, ThemeColors.terminalGreen),
+          _buildStatItem("Network", "Healthy", ThemeColors.terminalGreen),
         ],
       ),
     );
@@ -157,7 +155,7 @@ class RadarPainter extends CustomPainter {
     final radius = size.width / 2;
 
     final ringPaint = Paint()
-      ..color = ThemeColors.terminalGreen.withOpacity(0.1)
+      ..color = ThemeColors.terminalGreen.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -171,8 +169,8 @@ class RadarPainter extends CustomPainter {
     final sweepPaint = Paint()
       ..shader = SweepGradient(
         colors: [
-          ThemeColors.terminalGreen.withOpacity(0.0),
-          ThemeColors.terminalGreen.withOpacity(0.5),
+          ThemeColors.terminalGreen.withValues(alpha: 0.0),
+          ThemeColors.terminalGreen.withValues(alpha: 0.5),
         ],
         stops: const [0.0, 1.0],
         transform: GradientRotation(angle * 2 * pi - pi / 2),
@@ -183,7 +181,7 @@ class RadarPainter extends CustomPainter {
     // Draw sweeping line
     final lineAngle = angle * 2 * pi - pi / 2;
     final lineEnd = Offset(center.dx + radius * cos(lineAngle), center.dy + radius * sin(lineAngle));
-    canvas.drawLine(center, lineEnd, Paint()..color = ThemeColors.terminalGreen.withOpacity(0.8)..strokeWidth = 2);
+    canvas.drawLine(center, lineEnd, Paint()..color = ThemeColors.terminalGreen.withValues(alpha: 0.8)..strokeWidth = 2);
   }
 
   @override

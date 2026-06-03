@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -22,60 +21,38 @@ String _calculateBytesHashSync(Uint8List bytes) {
   return sha256.convert(bytes).toString();
 }
 
-class AssembleArgs {
-  final List<String?> chunks;
-  final String expectedHash;
-  final String outputPath;
-
-  AssembleArgs(this.chunks, this.expectedHash, this.outputPath);
-}
-
-// Top-level function for background isolate file assembly
-Future<bool> _assembleAndVerifySync(AssembleArgs args) async {
-  try {
-    final file = File(args.outputPath);
-    final sink = file.openWrite();
-    
-    for (final chunkB64 in args.chunks) {
-      if (chunkB64 == null) continue;
-      final bytes = base64Decode(chunkB64);
-      sink.add(bytes);
-    }
-    
-    await sink.flush();
-    await sink.close();
-    
-    final finalHash = await _calculateFileHash(args.outputPath);
-    
-    if (finalHash != args.expectedHash) {
-      if (file.existsSync()) file.deleteSync();
-      return false;
-    }
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
 class FileTransferManager {
-  static const int chunkSize = 16384; // 16KB
+  // Adaptive Chunk Sizes
+  static const int chunkPoor = 32768;      // 32KB
+  static const int chunkNormal = 65536;    // 64KB
+  static const int chunkFast = 131072;     // 128KB
+  static const int chunkExcellent = 262144; // 256KB
+
+  int _currentChunkSize = chunkNormal;
 
   final ImagePicker _picker = ImagePicker();
-  final Map<String, List<String?>> _incomingChunks = {};
+  
+  // Storage for metadata and open file handles
   final Map<String, TransferPacket> _incomingMeta = {};
+  final Map<String, RandomAccessFile> _activeFiles = {};
+  final Map<String, Set<int>> _receivedIndices = {};
   
   // Dynamic tuning state
-  int _currentThrottleMs = 15;
+  int _currentThrottleMs = 10;
 
-  void _tuneThrottle(int totalChunks) {
-    // Adaptive tuning: Larger files need slightly more throttle to prevent
-    // the WebRTC underlying SCTP buffer from overflowing and dropping connection.
-    if (totalChunks < 50) {
-      _currentThrottleMs = 5; // Images / small files: blast it
-    } else if (totalChunks < 500) {
-      _currentThrottleMs = 15; // Medium files (~8MB)
+  void updateNetworkQuality(int latencyMs) {
+    if (latencyMs < 100) {
+      _currentChunkSize = chunkExcellent;
+      _currentThrottleMs = 2;
+    } else if (latencyMs < 250) {
+      _currentChunkSize = chunkFast;
+      _currentThrottleMs = 5;
+    } else if (latencyMs < 500) {
+      _currentChunkSize = chunkNormal;
+      _currentThrottleMs = 15;
     } else {
-      _currentThrottleMs = 25; // Large files (Videos/PDFs > 8MB)
+      _currentChunkSize = chunkPoor;
+      _currentThrottleMs = 30;
     }
   }
 
@@ -83,7 +60,7 @@ class FileTransferManager {
   Future<String?> sendImage({
     required String messageId,
     ImageSource source = ImageSource.gallery,
-    required Function(String packet) sendPacket,
+    required Function(dynamic packet, bool isBinary) sendPacket,
     required Function(String transferId, double progress, String? messageId) onProgress,
   }) async {
     try {
@@ -93,7 +70,6 @@ class FileTransferManager {
       final String transferId = const Uuid().v4();
       final File originalFile = File(image.path);
       
-      // 1. Compression (Already asynchronous and native)
       final Uint8List? compressedBytes = await FlutterImageCompress.compressWithFile(
         originalFile.absolute.path,
         minWidth: 1280,
@@ -103,11 +79,9 @@ class FileTransferManager {
 
       if (compressedBytes == null) return null;
 
-      // 2. Hash for integrity (Background Isolate)
       final String hash = await compute(_calculateBytesHashSync, compressedBytes);
-      final int totalChunks = (compressedBytes.length / chunkSize).ceil();
+      final int totalChunks = (compressedBytes.length / _currentChunkSize).ceil();
 
-      // 3. Send Metadata
       final metaPacket = TransferPacket(
         type: PacketType.image_meta,
         transferId: transferId,
@@ -115,13 +89,11 @@ class FileTransferManager {
         fileName: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
         fileSize: compressedBytes.length,
         totalChunks: totalChunks,
+        chunkSize: _currentChunkSize,
         hash: hash,
       );
-      sendPacket(metaPacket.encode());
+      sendPacket(metaPacket.encode(), false);
 
-      _tuneThrottle(totalChunks);
-
-      // 4. Send Chunks from Memory (Images are small enough for RAM)
       await _sendBytes(transferId, messageId, compressedBytes, sendPacket, onProgress, PacketType.image_chunk);
 
       return transferId;
@@ -131,22 +103,19 @@ class FileTransferManager {
     }
   }
 
-  /// Send a generic file by streaming from disk to save RAM.
+  /// Send a generic file by streaming from disk.
   Future<String?> sendFile({
     required String messageId,
     required File file,
-    required Function(String packet) sendPacket,
+    required Function(dynamic packet, bool isBinary) sendPacket,
     required Function(String transferId, double progress, String? messageId) onProgress,
   }) async {
     try {
       final String transferId = const Uuid().v4();
       final int fileSize = await file.length();
-
-      // 1. Hash for integrity (Background Isolate via streaming)
       final String hash = await _calculateFileHash(file.path);
-      final int totalChunks = (fileSize / chunkSize).ceil();
+      final int totalChunks = (fileSize / _currentChunkSize).ceil();
 
-      // 2. Send Metadata
       final metaPacket = TransferPacket(
         type: PacketType.file_meta,
         transferId: transferId,
@@ -154,13 +123,11 @@ class FileTransferManager {
         fileName: file.path.split(Platform.pathSeparator).last,
         fileSize: fileSize,
         totalChunks: totalChunks,
+        chunkSize: _currentChunkSize,
         hash: hash,
       );
-      sendPacket(metaPacket.encode());
+      sendPacket(metaPacket.encode(), false);
 
-      _tuneThrottle(totalChunks);
-
-      // 3. Send Chunks via Disk Streaming
       await _streamFileChunks(transferId, messageId, file, totalChunks, sendPacket, onProgress, PacketType.file_chunk);
 
       return transferId;
@@ -174,27 +141,31 @@ class FileTransferManager {
     String transferId,
     String messageId,
     Uint8List bytes,
-    Function(String packet) sendPacket,
+    Function(dynamic packet, bool isBinary) sendPacket,
     Function(String transferId, double progress, String? messageId) onProgress,
     PacketType chunkType,
   ) async {
-    final int totalChunks = (bytes.length / chunkSize).ceil();
+    final int totalChunks = (bytes.length / _currentChunkSize).ceil();
     for (int i = 0; i < totalChunks; i++) {
-      final int start = i * chunkSize;
-      final int end = (start + chunkSize < bytes.length) ? start + chunkSize : bytes.length;
+      final int start = i * _currentChunkSize;
+      final int end = (start + _currentChunkSize < bytes.length) ? start + _currentChunkSize : bytes.length;
 
-      final chunkData = base64Encode(bytes.sublist(start, end));
       final chunkPacket = TransferPacket(
         type: chunkType,
         transferId: transferId,
         index: i,
-        data: chunkData,
+        binaryData: bytes.sublist(start, end),
       );
 
-      sendPacket(chunkPacket.encode());
-      onProgress(transferId, (i + 1) / totalChunks, messageId);
+      bool sent = sendPacket(chunkPacket.encodeBinary(), true);
       
-      // Auto-tuning throttle
+      // If buffer full, wait and retry
+      while (!sent) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        sent = sendPacket(chunkPacket.encodeBinary(), true);
+      }
+
+      onProgress(transferId, (i + 1) / totalChunks, messageId);
       await Future.delayed(Duration(milliseconds: _currentThrottleMs));
     }
   }
@@ -204,100 +175,142 @@ class FileTransferManager {
     String messageId,
     File file,
     int totalChunks,
-    Function(String packet) sendPacket,
+    Function(dynamic packet, bool isBinary) sendPacket,
     Function(String transferId, double progress, String? messageId) onProgress,
     PacketType chunkType,
   ) async {
     final raf = await file.open(mode: FileMode.read);
     
     for (int i = 0; i < totalChunks; i++) {
-      final bytes = await raf.read(chunkSize);
-      final chunkData = base64Encode(bytes);
+      final bytes = await raf.read(_currentChunkSize);
       
       final chunkPacket = TransferPacket(
         type: chunkType,
         transferId: transferId,
         index: i,
-        data: chunkData,
+        binaryData: bytes,
       );
 
-      sendPacket(chunkPacket.encode());
-      onProgress(transferId, (i + 1) / totalChunks, messageId);
+      bool sent = sendPacket(chunkPacket.encodeBinary(), true);
       
-      // Auto-tuning throttle
+      // Flow Control Retry
+      while (!sent) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        sent = sendPacket(chunkPacket.encodeBinary(), true);
+      }
+
+      onProgress(transferId, (i + 1) / totalChunks, messageId);
       await Future.delayed(Duration(milliseconds: _currentThrottleMs));
     }
     
     await raf.close();
   }
 
-  /// Handles an incoming packet from the data channel.
+  /// Handles an incoming packet (either String or Uint8List).
   Future<File?> handleIncomingPacket(
-    String rawPacket, {
+    dynamic rawData, {
     required Function(String transferId, double progress, String? messageId) onProgress,
   }) async {
-    final Map<String, dynamic> json = jsonDecode(rawPacket);
-    final packet = TransferPacket.fromJson(json);
-
-    if (packet.type == PacketType.image_meta || packet.type == PacketType.file_meta) {
-      _incomingMeta[packet.transferId] = packet;
-      _incomingChunks[packet.transferId] = List<String?>.filled(packet.totalChunks!, null);
-      // Trigger progress 0 to create the placeholder
-      onProgress(packet.transferId, 0, packet.messageId);
+    TransferPacket packet;
+    
+    if (rawData is String) {
+      final Map<String, dynamic> json = jsonDecode(rawData);
+      packet = TransferPacket.fromJson(json);
+    } else if (rawData is Uint8List) {
+      packet = TransferPacket.decodeBinary(rawData);
+    } else {
       return null;
     }
 
+    if (packet.type == PacketType.image_meta || packet.type == PacketType.file_meta) {
+      return await _initIncomingTransfer(packet, onProgress);
+    }
+
     if (packet.type == PacketType.image_chunk || packet.type == PacketType.file_chunk) {
-      final id = packet.transferId;
-      final meta = _incomingMeta[id];
-      if (meta == null) return null;
-
-      _incomingChunks[id]![packet.index!] = packet.data;
-
-      // Update progress
-      int receivedCount = _incomingChunks[id]!.where((c) => c != null).length;
-      onProgress(id, receivedCount / meta.totalChunks!, meta.messageId);
-
-      // Check if complete
-      if (receivedCount == meta.totalChunks) {
-        return await _assembleFile(id);
-      }
+      return await _handleChunk(packet, onProgress);
     }
 
     return null;
   }
 
-  TransferPacket? getMeta(String transferId) => _incomingMeta[transferId];
+  Future<File?> _initIncomingTransfer(TransferPacket packet, Function onProgress) async {
+    _incomingMeta[packet.transferId] = packet;
+    _receivedIndices[packet.transferId] = {};
+    
+    final directory = await getApplicationDocumentsDirectory();
+    final String tempPath = '${directory.path}/temp_${packet.transferId}_${packet.fileName}';
+    final file = File(tempPath);
+    if (await file.exists()) await file.delete();
+    
+    final raf = await file.open(mode: FileMode.write);
+    _activeFiles[packet.transferId] = raf;
+    
+    onProgress(packet.transferId, 0.0, packet.messageId);
+    return null;
+  }
 
-  Future<File?> _assembleFile(String transferId) async {
-    final meta = _incomingMeta[transferId]!;
-    final chunks = _incomingChunks[transferId]!;
+  Future<File?> _handleChunk(TransferPacket packet, Function onProgress) async {
+    final id = packet.transferId;
+    final meta = _incomingMeta[id];
+    final raf = _activeFiles[id];
+    
+    if (meta == null || raf == null || packet.binaryData == null) return null;
 
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final String outputPath = '${directory.path}/${meta.fileName}';
-      
-      // Offload Base64 decoding, binary assembly, and hashing to background isolate
-      final args = AssembleArgs(chunks, meta.hash!, outputPath);
-      final isValid = await compute(_assembleAndVerifySync, args);
-      
-      _cleanup(transferId);
-      
-      if (isValid) {
-        return File(outputPath);
-      } else {
-        print("Integrity Check Failed for $transferId");
-        return null;
-      }
-    } catch (e) {
-      print("Error assembling file: $e");
-      _cleanup(transferId);
+    // Use current chunk size for offset calculation if index is provided
+    // Note: This requires that BOTH peers agree on the chunk size or that the chunk size is passed in the packet.
+    // In V2, we will assume a fixed offset based on the binary data length for simplicity, 
+    // but the packet index * chunkSize is safer if chunks are lost.
+    // However, since we now have adaptive sizes, we should store the offsets or use a simpler append if ordered.
+    
+    // Use the chunkSize stored in metadata to calculate the exact offset.
+    // This allows support for out-of-order chunks even with adaptive sizing.
+    final chunkSize = meta.chunkSize ?? chunkNormal;
+    await raf.setPosition(packet.index! * chunkSize);
+    await raf.writeFrom(packet.binaryData!);
+    
+    _receivedIndices[id]!.add(packet.index!);
+    
+    int receivedCount = _receivedIndices[id]!.length;
+    onProgress(id, receivedCount / meta.totalChunks!, meta.messageId);
+
+    if (receivedCount == meta.totalChunks) {
+      return await _finalizeTransfer(id);
+    }
+    return null;
+  }
+
+  Future<File?> _finalizeTransfer(String id) async {
+    final meta = _incomingMeta[id]!;
+    final raf = _activeFiles[id]!;
+    
+    await raf.flush();
+    await raf.close();
+    _activeFiles.remove(id);
+
+    final directory = await getApplicationDocumentsDirectory();
+    final String tempPath = '${directory.path}/temp_${id}_${meta.fileName}';
+    final String finalPath = '${directory.path}/${meta.fileName}';
+    
+    // Verify hash
+    final actualHash = await _calculateFileHash(tempPath);
+    if (actualHash == meta.hash) {
+      final finalFile = await File(tempPath).rename(finalPath);
+      _cleanup(id);
+      return finalFile;
+    } else {
+      print("Integrity check failed for $id");
+      await File(tempPath).delete();
+      _cleanup(id);
       return null;
     }
   }
 
   void _cleanup(String transferId) {
     _incomingMeta.remove(transferId);
-    _incomingChunks.remove(transferId);
+    _activeFiles[transferId]?.close();
+    _activeFiles.remove(transferId);
+    _receivedIndices.remove(transferId);
   }
+
+  TransferPacket? getMeta(String transferId) => _incomingMeta[transferId];
 }

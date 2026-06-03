@@ -49,7 +49,7 @@ class _ProfileDialogState extends State<ProfileDialog> {
     controller.update(); // Update observers
     Get.back();
     Get.snackbar("SYSTEM UPDATE", "Neural Identity Synchronized", 
-      backgroundColor: ThemeColors.neonCyan.withOpacity(0.3), colorText: Colors.white);
+      backgroundColor: ThemeColors.neonCyan.withValues(alpha: 0.3), colorText: Colors.white);
   }
 
   @override
@@ -97,8 +97,12 @@ class _ProfileDialogState extends State<ProfileDialog> {
             ),
             child: CircleAvatar(
               backgroundColor: Colors.white10,
-              backgroundImage: _tempPhotoPath != null ? FileImage(File(_tempPhotoPath!)) : null,
-              child: _tempPhotoPath == null ? const Icon(Icons.person, color: ThemeColors.neonCyan, size: 40) : null,
+              backgroundImage: _tempPhotoPath != null && File(_tempPhotoPath!).existsSync() 
+                  ? FileImage(File(_tempPhotoPath!)) 
+                  : null,
+              child: _tempPhotoPath == null || !File(_tempPhotoPath!).existsSync()
+                  ? const Icon(Icons.person, color: ThemeColors.neonCyan, size: 40) 
+                  : null,
             ),
           ),
           Positioned(bottom: 0, right: 0, child: const Icon(Icons.add_a_photo, color: ThemeColors.neonPink, size: 20)),
@@ -114,7 +118,7 @@ class _ProfileDialogState extends State<ProfileDialog> {
       decoration: InputDecoration(
         labelText: "NEURAL ALIAS",
         labelStyle: const TextStyle(color: Colors.white24, fontSize: 10),
-        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: ThemeColors.neonCyan.withOpacity(0.3))),
+        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: ThemeColors.neonCyan.withValues(alpha: 0.3))),
         focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: ThemeColors.neonCyan)),
       ),
     );

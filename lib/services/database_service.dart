@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../data/collections/message_collection.dart';
@@ -6,28 +7,70 @@ import '../data/collections/log_collection.dart';
 import '../data/collections/user_collection.dart';
 import '../data/collections/peer_session_collection.dart';
 import '../data/collections/stun_collection.dart';
+import '../data/collections/sync_queue_collection.dart';
 
 class DatabaseService {
   late Isar isar;
 
   Future<void> init() async {
-    if (Isar.instanceNames.isNotEmpty) {
-      isar = Isar.getInstance()!;
-      return;
+    try {
+      if (Isar.instanceNames.isNotEmpty) {
+        isar = Isar.getInstance()!;
+        return;
+      }
+      final dir = await getApplicationDocumentsDirectory();
+      isar = await Isar.open(
+        [
+          MessageCollectionSchema,
+          PeerCollectionSchema,
+          LogCollectionSchema,
+          UserCollectionSchema,
+          PeerSessionCollectionSchema,
+          StunCollectionSchema,
+          SyncQueueCollectionSchema,
+        ],
+        directory: dir.path,
+        inspector: false, // Disabled for production stability
+      );
+    } catch (e) {
+      print("[DATABASE-ERROR] Isar initialization failed: $e");
+      rethrow;
     }
-    final dir = await getApplicationDocumentsDirectory();
-    isar = await Isar.open(
-      [
-        MessageCollectionSchema,
-        PeerCollectionSchema,
-        LogCollectionSchema,
-        UserCollectionSchema,
-        PeerSessionCollectionSchema,
-        StunCollectionSchema,
-      ],
-      directory: dir.path,
-      inspector: true,
-    );
+  }
+
+  Future<void> pruneData({int daysToKeep = 30}) async {
+    final cutoff = DateTime.now().subtract(Duration(days: daysToKeep));
+    
+    await isar.writeTxn(() async {
+      final messagesToDelete = await isar.messageCollections
+          .filter()
+          .timestampLessThan(cutoff)
+          .findAll();
+      
+      final logsToDelete = await isar.logCollections
+          .filter()
+          .timestampLessThan(cutoff)
+          .findAll();
+          
+      // Also delete physical files for messages being deleted
+      for (var msg in messagesToDelete) {
+        if (msg.filePath != null) {
+          final file = File(msg.filePath!);
+          if (await file.exists()) {
+            try {
+              await file.delete();
+            } catch (e) {
+              print("[DATABASE-PRUNE] Error deleting file ${msg.filePath}: $e");
+            }
+          }
+        }
+      }
+
+      await isar.messageCollections.deleteAll(messagesToDelete.map((e) => e.id).toList());
+      await isar.logCollections.deleteAll(logsToDelete.map((e) => e.id).toList());
+      
+      print("[DATABASE] Pruned ${messagesToDelete.length} messages and ${logsToDelete.length} logs older than $daysToKeep days.");
+    });
   }
 
   // STUN Management

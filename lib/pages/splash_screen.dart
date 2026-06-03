@@ -133,13 +133,13 @@ class _SplashScreenState extends State<SplashScreen> {
         Positioned(
           top: -100,
           left: -100,
-          child: GlowSphere(color: ThemeColors.neonPurple.withOpacity(0.1), size: 400),
+          child: GlowSphere(color: ThemeColors.neonPurple.withValues(alpha: 0.1), size: 400),
         ).animate(onPlay: (c) => c.repeat(reverse: true)).move(duration: const Duration(seconds: 5), begin: const Offset(0, 0), end: const Offset(50, 50)),
         
         Positioned(
           bottom: -100,
           right: -100,
-          child: GlowSphere(color: ThemeColors.neonCyan.withOpacity(0.1), size: 500),
+          child: GlowSphere(color: ThemeColors.neonCyan.withValues(alpha: 0.1), size: 500),
         ).animate(onPlay: (c) => c.repeat(reverse: true)).move(duration: const Duration(seconds: 7), begin: const Offset(0, 0), end: const Offset(-50, -50)),
 
         // Radar Sweep
@@ -150,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: ThemeColors.neonCyan.withOpacity(0.1)),
+                border: Border.all(color: ThemeColors.neonCyan.withValues(alpha: 0.1)),
               ),
               child: Stack(
                 children: [
@@ -162,7 +162,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [ThemeColors.neonCyan.withOpacity(0.5), Colors.transparent],
+                          colors: [ThemeColors.neonCyan.withValues(alpha: 0.5), Colors.transparent],
                         ),
                       ),
                     ).animate(onPlay: (c) => c.repeat()).rotate(duration: const Duration(seconds: 3)),
@@ -187,7 +187,7 @@ class _SplashScreenState extends State<SplashScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: ThemeColors.neonCyan, width: 2),
-                boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withOpacity(0.2), blurRadius: 20)],
+                boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withValues(alpha: 0.2), blurRadius: 20)],
               ),
               child: const Icon(Icons.hub_outlined, color: ThemeColors.neonCyan, size: 40),
             ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(duration: const Duration(seconds: 2), begin: const Offset(1, 1), end: const Offset(1.1, 1.1)),
@@ -211,7 +211,7 @@ class _SplashScreenState extends State<SplashScreen> {
       height: 200,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
       ),
@@ -288,7 +288,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 width: 150 * _progress,
                 decoration: BoxDecoration(
                   color: ThemeColors.neonCyan,
-                  boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withOpacity(0.5), blurRadius: 10)],
+                  boxShadow: [BoxShadow(color: ThemeColors.neonCyan.withValues(alpha: 0.5), blurRadius: 10)],
                 ),
               ),
             ),

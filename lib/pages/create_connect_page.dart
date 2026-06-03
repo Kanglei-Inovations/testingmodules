@@ -4,7 +4,7 @@ import '../features/connection/controller/connection_controller.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/cyber_button.dart';
 import '../widgets/neural_handshake_overlay.dart';
-import 'dht_discovery_page.dart';
+import 'lan_discovery_page.dart';
 
 class CreateConnectPage extends StatelessWidget {
   const CreateConnectPage({super.key});
@@ -39,7 +39,7 @@ class CreateConnectPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Obx(() => _DiscoveryModeCard(
-              title: "Manual (QR / Link)",
+              title: "Manual QR / Link",
               subtitle: "Create offer and share QR or link manually",
               icon: Icons.qr_code_2_rounded,
               isSelected: controller.discoveryMode.value == DiscoveryMode.manual,
@@ -47,19 +47,19 @@ class CreateConnectPage extends StatelessWidget {
             )),
             const SizedBox(height: 12),
             Obx(() => _DiscoveryModeCard(
-              title: "DHT Auto Discovery",
-              subtitle: "Automatically discover peers on DHT network",
-              icon: Icons.hub_outlined,
-              isSelected: controller.discoveryMode.value == DiscoveryMode.dht,
-              onTap: () => controller.discoveryMode.value = DiscoveryMode.dht,
-            )),
-            const SizedBox(height: 12),
-            Obx(() => _DiscoveryModeCard(
               title: "Nearby Discovery (LAN)",
-              subtitle: "Find peers on the same local network",
+              subtitle: "Automatically discover peers on local network",
               icon: Icons.wifi_tethering_rounded,
               isSelected: controller.discoveryMode.value == DiscoveryMode.lan,
               onTap: () => controller.discoveryMode.value = DiscoveryMode.lan,
+            )),
+            const SizedBox(height: 12),
+            Obx(() => _DiscoveryModeCard(
+              title: "Global Discovery",
+              subtitle: "Connect across different networks (Coming Soon)",
+              icon: Icons.public_rounded,
+              isSelected: controller.discoveryMode.value == DiscoveryMode.global,
+              onTap: () => {}, // controller.discoveryMode.value = DiscoveryMode.global,
             )),
             const SizedBox(height: 40),
             const Text(
@@ -79,10 +79,10 @@ class CreateConnectPage extends StatelessWidget {
                   controller.isSdpReady.value = false;
                   controller.createOffer();
                   Get.off(() => NeuralHandshakeOverlay(), opaque: false);
-                } else {
-                  print("[DEBUG-UI] Initiating Auto Discovery (DHT/LAN)...");
-                  controller.startDhtDiscovery();
-                  Get.to(() => const DhtDiscoveryPage());
+                } else if (controller.discoveryMode.value == DiscoveryMode.lan) {
+                  print("[DEBUG-UI] Initiating LAN Discovery...");
+                  controller.startLanDiscovery();
+                  Get.to(() => const LanDiscoveryPage());
                 }
               },
               fullWidth: true,
@@ -119,7 +119,7 @@ class _DiscoveryModeCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? ThemeColors.neonPurple.withOpacity(0.05) : Colors.white.withOpacity(0.02),
+          color: isSelected ? ThemeColors.neonPurple.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: isSelected ? ThemeColors.neonPurple : Colors.white10),
         ),
@@ -128,7 +128,7 @@ class _DiscoveryModeCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isSelected ? ThemeColors.neonPurple.withOpacity(0.1) : Colors.white.withOpacity(0.05),
+                color: isSelected ? ThemeColors.neonPurple.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: isSelected ? ThemeColors.neonPurple : Colors.white38, size: 24),
@@ -160,7 +160,7 @@ class _NetworkTransportCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white10),
       ),
@@ -169,7 +169,7 @@ class _NetworkTransportCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.add, color: Colors.white38, size: 24),

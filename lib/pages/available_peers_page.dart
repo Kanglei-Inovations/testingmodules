@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../core/network/discovery_manager.dart';
 import '../features/connection/controller/connection_controller.dart';
-import '../services/discovery_service.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/neural_handshake_overlay.dart';
 
@@ -11,7 +11,7 @@ class AvailablePeersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<ConnectionController>();
-    final discovery = Get.find<DiscoveryService>();
+    final discovery = Get.find<DiscoveryManager>();
 
     return Scaffold(
       backgroundColor: ThemeColors.darkBg,
@@ -114,7 +114,7 @@ class _PeerListCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white10),
       ),
@@ -123,9 +123,9 @@ class _PeerListCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: ThemeColors.neonPurple.withOpacity(0.05),
+              color: ThemeColors.neonPurple.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: ThemeColors.neonPurple.withOpacity(0.2)),
+              border: Border.all(color: ThemeColors.neonPurple.withValues(alpha: 0.2)),
             ),
             child: const Icon(Icons.hub_outlined, color: ThemeColors.neonPurple, size: 20),
           ),

@@ -11,6 +11,9 @@ class StunCollection {
 
   late bool isEnabled;
   
-  // Track latency for speed test
+  // Ranking Metrics
   int? latency;
+  int successCount = 0;
+  int failureCount = 0;
+  DateTime? lastUsedAt;
 }

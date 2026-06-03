@@ -68,6 +68,8 @@ class HomePage extends StatelessWidget {
                     children: [
                       _buildQuickActions(context),
                       const SizedBox(height: 30),
+                      _buildNetworkAnalytics(context),
+                      const SizedBox(height: 30),
                       _buildConnectedNodeCard(context),
                       const SizedBox(height: 30),
                     ],
@@ -75,6 +77,69 @@ class HomePage extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkAnalytics(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "NETWORK ANALYTICS",
+          style: TextStyle(
+            color: Colors.white30,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 15),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: ThemeColors.glassBg,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMetricTile("TRANSFER SPEED", controller.transportSpeed, Icons.speed, ThemeColors.neonCyan),
+                  _buildMetricTile("DISCOVERY", controller.discoveryStatus, Icons.radar, ThemeColors.neonPurple),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMetricTile("SIGNAL QUALITY", controller.networkStatus, Icons.wifi, ThemeColors.terminalGreen),
+                  _buildMetricTile("SYNC QUEUE", RxString("HEALTHY"), Icons.sync, ThemeColors.neonPink),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricTile(String label, RxString value, IconData icon, Color color) {
+    return Expanded(
+      child: Row(
+        children: [
+          Icon(icon, color: color.withValues(alpha: 0.5), size: 16),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Obx(() => Text(value.value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+            ],
           ),
         ],
       ),
@@ -149,9 +214,9 @@ class HomePage extends StatelessWidget {
         decoration: BoxDecoration(
           color: ThemeColors.glassBg,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: ThemeColors.terminalGreen.withOpacity(0.5), width: 1.5),
+          border: Border.all(color: ThemeColors.terminalGreen.withValues(alpha: 0.5), width: 1.5),
           boxShadow: [
-            BoxShadow(color: ThemeColors.terminalGreen.withOpacity(0.1), blurRadius: 20),
+            BoxShadow(color: ThemeColors.terminalGreen.withValues(alpha: 0.1), blurRadius: 20),
           ],
         ),
         child: Column(
@@ -167,7 +232,7 @@ class HomePage extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: ThemeColors.terminalGreen, width: 2),
-                        boxShadow: [BoxShadow(color: ThemeColors.terminalGreen.withOpacity(0.3), blurRadius: 10)],
+                        boxShadow: [BoxShadow(color: ThemeColors.terminalGreen.withValues(alpha: 0.3), blurRadius: 10)],
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(30),
@@ -198,7 +263,7 @@ class HomePage extends StatelessWidget {
                           const Icon(Icons.location_on, color: ThemeColors.neonPink, size: 10),
                           const SizedBox(width: 4),
                           Expanded(
-                            child: Text(address, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9, overflow: TextOverflow.ellipsis)),
+                            child: Text(address, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, overflow: TextOverflow.ellipsis)),
                           ),
                         ],
                       ),
@@ -269,7 +334,7 @@ class HomePage extends StatelessWidget {
                               border: Border.all(color: ThemeColors.neonPurple, width: 2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: ThemeColors.neonPurple.withOpacity(0.4),
+                                  color: ThemeColors.neonPurple.withValues(alpha: 0.4),
                                   blurRadius: 10,
                                   spreadRadius: 1,
                                 ),
@@ -277,10 +342,10 @@ class HomePage extends StatelessWidget {
                             ),
                             child: CircleAvatar(
                               backgroundColor: Colors.white10,
-                              backgroundImage: user?.profilePhotoPath != null 
-                                  ? FileImage(File(user!.profilePhotoPath!)) 
+                              backgroundImage: user?.profilePhotoPath != null && File(user!.profilePhotoPath!).existsSync()
+                                  ? FileImage(File(user.profilePhotoPath!)) 
                                   : null,
-                              child: user?.profilePhotoPath == null 
+                              child: user?.profilePhotoPath == null || !File(user!.profilePhotoPath!).existsSync()
                                   ? const Icon(Icons.person, color: ThemeColors.neonCyan) 
                                   : null,
                             ),
@@ -317,7 +382,7 @@ class HomePage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white10),
                 ),
@@ -352,12 +417,12 @@ class HomePage extends StatelessWidget {
         Positioned(
           top: -100,
           left: -50,
-          child: GlowSphere(color: ThemeColors.neonPurple.withOpacity(0.15), size: 400),
+          child: GlowSphere(color: ThemeColors.neonPurple.withValues(alpha: 0.15), size: 400),
         ).animate(onPlay: (c) => c.repeat(reverse: true)).move(duration: const Duration(seconds: 5), begin: const Offset(0, 0), end: const Offset(50, 50)),
         Positioned(
           bottom: -150,
           right: -50,
-          child: GlowSphere(color: ThemeColors.neonCyan.withOpacity(0.15), size: 500),
+          child: GlowSphere(color: ThemeColors.neonCyan.withValues(alpha: 0.15), size: 500),
         ).animate(onPlay: (c) => c.repeat(reverse: true)).move(duration: const Duration(seconds: 7), begin: const Offset(0, 0), end: const Offset(-50, -30)),
       ],
     );
@@ -413,7 +478,7 @@ class HomePage extends StatelessWidget {
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: ThemeColors.darkBg.withOpacity(0.8),
+          backgroundColor: ThemeColors.darkBg.withValues(alpha: 0.8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: ThemeColors.neonPink, width: 1.5),
@@ -427,7 +492,7 @@ class HomePage extends StatelessWidget {
               hintText: "PASTE REMOTE SDP STREAM...",
               hintStyle: const TextStyle(color: Colors.white24),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.05),
+              fillColor: Colors.white.withValues(alpha: 0.05),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
             ),
           ),
@@ -483,7 +548,7 @@ class _QuickActionButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.03),
+            color: Colors.white.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white10),
           ),
@@ -491,7 +556,7 @@ class _QuickActionButton extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                 child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(width: 16),

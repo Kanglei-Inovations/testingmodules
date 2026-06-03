@@ -17,18 +17,33 @@ const StunCollectionSchema = CollectionSchema(
   name: r'StunCollection',
   id: -5177676966215360920,
   properties: {
-    r'isEnabled': PropertySchema(
+    r'failureCount': PropertySchema(
       id: 0,
+      name: r'failureCount',
+      type: IsarType.long,
+    ),
+    r'isEnabled': PropertySchema(
+      id: 1,
       name: r'isEnabled',
       type: IsarType.bool,
     ),
+    r'lastUsedAt': PropertySchema(
+      id: 2,
+      name: r'lastUsedAt',
+      type: IsarType.dateTime,
+    ),
     r'latency': PropertySchema(
-      id: 1,
+      id: 3,
       name: r'latency',
       type: IsarType.long,
     ),
+    r'successCount': PropertySchema(
+      id: 4,
+      name: r'successCount',
+      type: IsarType.long,
+    ),
     r'url': PropertySchema(
-      id: 2,
+      id: 5,
       name: r'url',
       type: IsarType.string,
     )
@@ -77,9 +92,12 @@ void _stunCollectionSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeBool(offsets[0], object.isEnabled);
-  writer.writeLong(offsets[1], object.latency);
-  writer.writeString(offsets[2], object.url);
+  writer.writeLong(offsets[0], object.failureCount);
+  writer.writeBool(offsets[1], object.isEnabled);
+  writer.writeDateTime(offsets[2], object.lastUsedAt);
+  writer.writeLong(offsets[3], object.latency);
+  writer.writeLong(offsets[4], object.successCount);
+  writer.writeString(offsets[5], object.url);
 }
 
 StunCollection _stunCollectionDeserialize(
@@ -89,10 +107,13 @@ StunCollection _stunCollectionDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = StunCollection();
+  object.failureCount = reader.readLong(offsets[0]);
   object.id = id;
-  object.isEnabled = reader.readBool(offsets[0]);
-  object.latency = reader.readLongOrNull(offsets[1]);
-  object.url = reader.readString(offsets[2]);
+  object.isEnabled = reader.readBool(offsets[1]);
+  object.lastUsedAt = reader.readDateTimeOrNull(offsets[2]);
+  object.latency = reader.readLongOrNull(offsets[3]);
+  object.successCount = reader.readLong(offsets[4]);
+  object.url = reader.readString(offsets[5]);
   return object;
 }
 
@@ -104,10 +125,16 @@ P _stunCollectionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 1:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 2:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 3:
+      return (reader.readLongOrNull(offset)) as P;
+    case 4:
+      return (reader.readLong(offset)) as P;
+    case 5:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -310,6 +337,62 @@ extension StunCollectionQueryWhere
 
 extension StunCollectionQueryFilter
     on QueryBuilder<StunCollection, StunCollection, QFilterCondition> {
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      failureCountEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'failureCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      failureCountGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'failureCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      failureCountLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'failureCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      failureCountBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'failureCount',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition> idEqualTo(
       Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -371,6 +454,80 @@ extension StunCollectionQueryFilter
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isEnabled',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      lastUsedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastUsedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      lastUsedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastUsedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      lastUsedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastUsedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      lastUsedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastUsedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      lastUsedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastUsedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      lastUsedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastUsedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -441,6 +598,62 @@ extension StunCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'latency',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      successCountEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'successCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      successCountGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'successCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      successCountLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'successCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterFilterCondition>
+      successCountBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'successCount',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -594,6 +807,20 @@ extension StunCollectionQueryLinks
 
 extension StunCollectionQuerySortBy
     on QueryBuilder<StunCollection, StunCollection, QSortBy> {
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      sortByFailureCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'failureCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      sortByFailureCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'failureCount', Sort.desc);
+    });
+  }
+
   QueryBuilder<StunCollection, StunCollection, QAfterSortBy> sortByIsEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isEnabled', Sort.asc);
@@ -607,6 +834,20 @@ extension StunCollectionQuerySortBy
     });
   }
 
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      sortByLastUsedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      sortByLastUsedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<StunCollection, StunCollection, QAfterSortBy> sortByLatency() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'latency', Sort.asc);
@@ -617,6 +858,20 @@ extension StunCollectionQuerySortBy
       sortByLatencyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'latency', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      sortBySuccessCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'successCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      sortBySuccessCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'successCount', Sort.desc);
     });
   }
 
@@ -635,6 +890,20 @@ extension StunCollectionQuerySortBy
 
 extension StunCollectionQuerySortThenBy
     on QueryBuilder<StunCollection, StunCollection, QSortThenBy> {
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      thenByFailureCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'failureCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      thenByFailureCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'failureCount', Sort.desc);
+    });
+  }
+
   QueryBuilder<StunCollection, StunCollection, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -660,6 +929,20 @@ extension StunCollectionQuerySortThenBy
     });
   }
 
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      thenByLastUsedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      thenByLastUsedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastUsedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<StunCollection, StunCollection, QAfterSortBy> thenByLatency() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'latency', Sort.asc);
@@ -670,6 +953,20 @@ extension StunCollectionQuerySortThenBy
       thenByLatencyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'latency', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      thenBySuccessCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'successCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QAfterSortBy>
+      thenBySuccessCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'successCount', Sort.desc);
     });
   }
 
@@ -689,15 +986,36 @@ extension StunCollectionQuerySortThenBy
 extension StunCollectionQueryWhereDistinct
     on QueryBuilder<StunCollection, StunCollection, QDistinct> {
   QueryBuilder<StunCollection, StunCollection, QDistinct>
+      distinctByFailureCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'failureCount');
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QDistinct>
       distinctByIsEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isEnabled');
     });
   }
 
+  QueryBuilder<StunCollection, StunCollection, QDistinct>
+      distinctByLastUsedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastUsedAt');
+    });
+  }
+
   QueryBuilder<StunCollection, StunCollection, QDistinct> distinctByLatency() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'latency');
+    });
+  }
+
+  QueryBuilder<StunCollection, StunCollection, QDistinct>
+      distinctBySuccessCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'successCount');
     });
   }
 
@@ -717,15 +1035,34 @@ extension StunCollectionQueryProperty
     });
   }
 
+  QueryBuilder<StunCollection, int, QQueryOperations> failureCountProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'failureCount');
+    });
+  }
+
   QueryBuilder<StunCollection, bool, QQueryOperations> isEnabledProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isEnabled');
     });
   }
 
+  QueryBuilder<StunCollection, DateTime?, QQueryOperations>
+      lastUsedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastUsedAt');
+    });
+  }
+
   QueryBuilder<StunCollection, int?, QQueryOperations> latencyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'latency');
+    });
+  }
+
+  QueryBuilder<StunCollection, int, QQueryOperations> successCountProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'successCount');
     });
   }
 

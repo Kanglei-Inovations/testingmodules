@@ -49,13 +49,14 @@
 - [x] Battery Optimization Whitelisting UI
 - [ ] Background P2P Wake-up (WorkManager)
 
-## Phase 7: DHT / Peer Discovery (Complete)
-- [x] Distributed Hash Table (DHT) Integration (Localized mDNS/UDP)
+## Phase 7: LAN Discovery (Refined)
+- [x] LAN Zero-Config Discovery (mDNS + UDP Broadcast)
 - [x] Auto-Discovery of Previously Synced Nodes
 - [x] Signaling Abstraction Layer (Network TCP Signaling)
 
 ## Phase 8: Performance & Hardening (Final)
 - [x] Background Isolate Offloading for Crypto/Binary
-- [x] Memory Usage Profiling (Disk Streaming)
+- [x] Memory Usage Profiling (Disk Streaming & Out-of-Order Writing)
 - [x] DataChannel Buffer Auto-Tuning
-- [x] Production-grade Error Resilience
+- [x] Production-grade Error Resilience (Socket Safety & Resource Cleanup)
+- [x] Database TTL & Pruning (30-day auto-cleanup)

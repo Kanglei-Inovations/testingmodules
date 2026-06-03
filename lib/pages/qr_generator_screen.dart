@@ -56,11 +56,11 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: neonCyan.withOpacity(0.5), width: 2),
+                border: Border.all(color: neonCyan.withValues(alpha: 0.5), width: 2),
                 boxShadow: [
-                  BoxShadow(color: neonCyan.withOpacity(0.2), blurRadius: 20)
+                  BoxShadow(color: neonCyan.withValues(alpha: 0.2), blurRadius: 20)
                 ],
               ),
               child: _compressedData == null 

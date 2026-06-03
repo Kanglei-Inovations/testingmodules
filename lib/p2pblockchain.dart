@@ -264,12 +264,12 @@
 //           Positioned(
 //             top: -100,
 //             left: -100,
-//             child: _GlowSphere(color: neonPurple.withOpacity(0.2), size: 300),
+//             child: _GlowSphere(color: neonPurple.withValues(alpha: 0.2), size: 300),
 //           ),
 //           Positioned(
 //             bottom: -50,
 //             right: -50,
-//             child: _GlowSphere(color: neonCyan.withOpacity(0.2), size: 400),
+//             child: _GlowSphere(color: neonCyan.withValues(alpha: 0.2), size: 400),
 //           ),
 //
 //           SafeArea(
@@ -311,7 +311,7 @@
 //               shape: BoxShape.circle,
 //               border: Border.all(color: neonCyan, width: 2),
 //               boxShadow: [
-//                 BoxShadow(color: neonCyan.withOpacity(0.5), blurRadius: 10)
+//                 BoxShadow(color: neonCyan.withValues(alpha: 0.5), blurRadius: 10)
 //               ],
 //             ),
 //             child: const Icon(Icons.hub_outlined, color: neonCyan, size: 28),
@@ -537,7 +537,7 @@
 //                 color: neonPurple,
 //                 borderRadius: BorderRadius.circular(15),
 //                 boxShadow: [
-//                   BoxShadow(color: neonPurple.withOpacity(0.4), blurRadius: 15)
+//                   BoxShadow(color: neonPurple.withValues(alpha: 0.4), blurRadius: 15)
 //                 ],
 //               ),
 //               child: const Icon(Icons.send_rounded, color: Colors.white),
@@ -565,7 +565,7 @@
 //             padding: message.type == MessageType.image ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
 //             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
 //             decoration: BoxDecoration(
-//               color: message.isMe ? _P2PPageState.neonPurple.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+//               color: message.isMe ? _P2PPageState.neonPurple.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
 //               borderRadius: BorderRadius.only(
 //                 topLeft: const Radius.circular(15),
 //                 topRight: const Radius.circular(15),
@@ -573,7 +573,7 @@
 //                 bottomRight: Radius.circular(message.isMe ? 0 : 15),
 //               ),
 //               border: Border.all(
-//                 color: message.isMe ? _P2PPageState.neonPurple.withOpacity(0.5) : Colors.white10,
+//                 color: message.isMe ? _P2PPageState.neonPurple.withValues(alpha: 0.5) : Colors.white10,
 //               ),
 //             ),
 //             child: message.type == MessageType.image
@@ -659,7 +659,7 @@
 //           borderRadius: BorderRadius.circular(12),
 //           border: Border.all(color: color, width: 1.5),
 //           boxShadow: [
-//             BoxShadow(color: color.withOpacity(0.2), blurRadius: 8, spreadRadius: 1),
+//             BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 1),
 //           ],
 //         ),
 //         alignment: Alignment.center,
@@ -704,7 +704,7 @@
 //         borderRadius: BorderRadius.circular(15),
 //         border: Border.all(color: Colors.white10),
 //         boxShadow: showGlow ? [
-//           BoxShadow(color: accentColor.withOpacity(0.1), blurRadius: 15)
+//           BoxShadow(color: accentColor.withValues(alpha: 0.1), blurRadius: 15)
 //         ] : null,
 //       ),
 //       child: ClipRRect(
@@ -719,7 +719,7 @@
 //             decoration: InputDecoration(
 //               isDense: true,
 //               labelText: label,
-//               labelStyle: TextStyle(color: accentColor.withOpacity(0.7), fontSize: 12),
+//               labelStyle: TextStyle(color: accentColor.withValues(alpha: 0.7), fontSize: 12),
 //               prefixIcon: icon != null ? Icon(icon, color: accentColor, size: 20) : null,
 //               suffixIcon: suffixIcon,
 //               border: InputBorder.none,
@@ -745,7 +745,7 @@
 //       decoration: BoxDecoration(
 //         shape: BoxShape.circle,
 //         gradient: RadialGradient(
-//           colors: [color, color.withOpacity(0)],
+//           colors: [color, color.withValues(alpha: 0)],
 //         ),
 //       ),
 //     );

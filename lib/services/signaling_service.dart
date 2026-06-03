@@ -63,10 +63,11 @@ class SignalingService extends GetxService {
   }
 
   /// Compresses a local SDP for transmission.
-  Future<String> prepareSdpForSharing(RTCSessionDescription description) async {
+  Future<String> prepareSdpForSharing(RTCSessionDescription description, {String? peerId}) async {
     final sdpJson = jsonEncode({
       "sdp": description.sdp,
       "type": description.type,
+      "originPeerId": peerId,
     });
     return await SdpCompressor.encode(sdpJson);
   }

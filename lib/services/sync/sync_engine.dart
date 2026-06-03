@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 import 'package:isar/isar.dart';
 import '../../data/collections/message_collection.dart';
 import '../../data/collections/peer_session_collection.dart';
+import '../../data/collections/sync_queue_collection.dart';
 import '../../features/connection/controller/connection_controller.dart';
 import '../../models/sync_packet.dart';
 import '../database_service.dart';
+import '../notification_service.dart';
 
 class SyncEngine extends GetxService {
   final DatabaseService _db = Get.find<DatabaseService>();
@@ -14,18 +16,156 @@ class SyncEngine extends GetxService {
   Function(String payload)? onSendData;
   String? _localPeerId;
   bool _isSyncing = false;
+  
+  static const int batchSize = 100;
+  
+  final List<StreamSubscription> _subscriptions = [];
+  Timer? _queueTimer;
 
   void init(String localPeerId, Function(String payload) sender) {
     _localPeerId = localPeerId;
     onSendData = sender;
     _startWatching();
-    triggerFullSync(); // Initial sync when connection established
+    triggerFullSync(); 
     _sendMyProfile();
+    processQueue(); // Process any pending operations from previous sessions
   }
 
   void _startWatching() {
-    _db.watchMessagesLazy().listen((_) => triggerFullSync());
-    _db.watchSessionsLazy().listen((_) => triggerFullSync());
+    // Watch for local changes to queue them
+    _subscriptions.add(_db.isar.messageCollections.watchLazy().listen((_) => _queueLocalChanges('messages')));
+    _subscriptions.add(_db.isar.peerSessionCollections.watchLazy().listen((_) => _queueLocalChanges('peer_sessions')));
+    
+    // Periodically try to flush the queue if connected
+    _queueTimer = Timer.periodic(const Duration(seconds: 30), (_) => processQueue());
+  }
+
+  @override
+  void onClose() {
+    for (var sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
+    _queueTimer?.cancel();
+    super.onClose();
+  }
+
+  Future<void> _queueLocalChanges(String collection) async {
+    if (_localPeerId == null) return;
+
+    final List<dynamic> unsynced;
+    if (collection == 'messages') {
+      unsynced = await _db.isar.messageCollections
+          .filter()
+          .isSyncedEqualTo(false)
+          .originPeerIdEqualTo(_localPeerId)
+          .findAll();
+    } else {
+      unsynced = await _db.isar.peerSessionCollections
+          .filter()
+          .isSyncedEqualTo(false)
+          .originPeerIdEqualTo(_localPeerId)
+          .findAll();
+    }
+
+    if (unsynced.isEmpty) return;
+
+    await _db.isar.writeTxn(() async {
+      for (var item in unsynced) {
+        final recordId = collection == 'messages' ? item.messageId : item.peerId;
+        
+        // Check if already in queue
+        final existing = await _db.isar.syncQueueCollections
+            .filter()
+            .recordIdEqualTo(recordId)
+            .collectionNameEqualTo(collection)
+            .findFirst();
+
+        if (existing == null) {
+          final entry = SyncQueueCollection()
+            ..targetPeerId = "ALL" // Gossip to everyone
+            ..operation = "upsert"
+            ..collectionName = collection
+            ..recordId = recordId
+            ..createdAt = DateTime.now()
+            ..retryCount = 0;
+          await _db.isar.syncQueueCollections.put(entry);
+        }
+      }
+    });
+
+    processQueue();
+  }
+
+  Future<void> processQueue() async {
+    if (_isSyncing || onSendData == null || _localPeerId == null) return;
+    _isSyncing = true;
+
+    try {
+      final queue = await _db.isar.syncQueueCollections
+          .where()
+          .sortByCreatedAt()
+          .limit(batchSize)
+          .findAll();
+
+      if (queue.isEmpty) {
+        _isSyncing = false;
+        return;
+      }
+
+      print("[SYNC_ENGINE] Processing ${queue.length} queued operations.");
+
+      for (var entry in queue) {
+        bool success = false;
+        if (entry.collectionName == 'messages') {
+          final msg = await _db.isar.messageCollections
+              .filter()
+              .messageIdEqualTo(entry.recordId)
+              .findFirst();
+          if (msg != null) {
+            _syncMessage(msg);
+            success = true;
+          } else {
+            success = true; // Record gone, remove from queue
+          }
+        } else if (entry.collectionName == 'peer_sessions') {
+          final session = await _db.isar.peerSessionCollections
+              .filter()
+              .peerIdEqualTo(entry.recordId)
+              .findFirst();
+          if (session != null) {
+            _syncSession(session);
+            success = true;
+          } else {
+            success = true;
+          }
+        }
+
+        if (success) {
+          await _db.isar.writeTxn(() async {
+            await _db.isar.syncQueueCollections.delete(entry.id);
+            // Mark as synced in original collection
+            if (entry.collectionName == 'messages') {
+              final msg = await _db.isar.messageCollections.filter().messageIdEqualTo(entry.recordId).findFirst();
+              if (msg != null) {
+                msg.isSynced = true;
+                await _db.isar.messageCollections.put(msg);
+              }
+            } else {
+               final session = await _db.isar.peerSessionCollections.filter().peerIdEqualTo(entry.recordId).findFirst();
+               if (session != null) {
+                 session.isSynced = true;
+                 await _db.isar.peerSessionCollections.put(session);
+               }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      print("[SYNC_ENGINE] Queue processing error: $e");
+    } finally {
+      _isSyncing = false;
+    }
   }
 
   Future<void> _sendMyProfile() async {
@@ -50,45 +190,12 @@ class SyncEngine extends GetxService {
   }
 
   Future<void> triggerFullSync() async {
-    // ... rest of triggerFullSync remains same
     if (_isSyncing || onSendData == null || _localPeerId == null) return;
-    _isSyncing = true;
-
-    try {
-      // 1. Sync unsynced messages created by us
-      final unsyncedMessages = await _db.isar.messageCollections
-          .filter()
-          .isSyncedEqualTo(false)
-          .originPeerIdEqualTo(_localPeerId)
-          .findAll();
-
-      for (var msg in unsyncedMessages) {
-        _syncMessage(msg);
-        await _db.isar.writeTxn(() async {
-          msg.isSynced = true;
-          await _db.isar.messageCollections.put(msg);
-        });
-      }
-
-      // 2. Sync unsynced peer sessions created/updated by us
-      final unsyncedSessions = await _db.isar.peerSessionCollections
-          .filter()
-          .isSyncedEqualTo(false)
-          .originPeerIdEqualTo(_localPeerId)
-          .findAll();
-
-      for (var session in unsyncedSessions) {
-        _syncSession(session);
-        await _db.isar.writeTxn(() async {
-          session.isSynced = true;
-          await _db.isar.peerSessionCollections.put(session);
-        });
-      }
-    } catch (e) {
-      print("DEBUG: [SYNC_ENGINE] Sync error: $e");
-    } finally {
-      _isSyncing = false;
-    }
+    
+    // For full sync, we ensure everything unsynced is in the queue
+    await _queueLocalChanges('messages');
+    await _queueLocalChanges('peer_sessions');
+    await processQueue();
   }
 
   void _syncMessage(MessageCollection msg) {
@@ -169,6 +276,14 @@ class SyncEngine extends GetxService {
     await _db.isar.writeTxn(() async {
       await _db.isar.messageCollections.put(msg);
     });
+
+    if (existing == null) {
+      try {
+        final connController = Get.find<ConnectionController>();
+        final senderName = connController.activePeerSession.value?.peerName ?? "New Node";
+        Get.find<NotificationService>().showMessageNotification(senderName, msg.text ?? "Received a file");
+      } catch (_) {}
+    }
   }
 
   Future<void> _handleSessionSync(SyncPacket packet) async {
@@ -220,7 +335,6 @@ class SyncEngine extends GetxService {
       await _db.isar.peerSessionCollections.put(session);
     });
 
-    // Update active session in controller if it matches
     try {
       final connController = Get.find<ConnectionController>();
       if (connController.activePeerSession.value?.peerId == pId || connController.activePeerSession.value == null) {

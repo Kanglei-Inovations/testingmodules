@@ -11,6 +11,8 @@ import '../data/collections/user_collection.dart';
 import '../data/collections/peer_session_collection.dart';
 import '../data/collections/stun_collection.dart';
 
+import '../data/collections/sync_queue_collection.dart';
+
 @pragma('vm:entry-point')
 void startCallback() {
   FlutterForegroundTask.setTaskHandler(BackgroundSyncHandler());
@@ -18,6 +20,8 @@ void startCallback() {
 
 class BackgroundSyncHandler extends TaskHandler {
   Isar? _isar;
+  int _syncCount = 0;
+  String _nodeStatus = "IDLE";
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -32,6 +36,7 @@ class BackgroundSyncHandler extends TaskHandler {
           UserCollectionSchema,
           PeerSessionCollectionSchema,
           StunCollectionSchema,
+          SyncQueueCollectionSchema,
         ],
         directory: dir.path,
       );
@@ -43,14 +48,32 @@ class BackgroundSyncHandler extends TaskHandler {
 
   @override
   void onRepeatEvent(DateTime timestamp) async {
-    // This is where we will trigger sync logic in the background isolate
     if (_isar != null) {
-       // Placeholder for future sync logic using _isar
+      // 1. Monitor Pending Sync Queue
+      final pendingCount = await _isar!.syncQueueCollections.count();
+      _syncCount = pendingCount;
+      
+      // 2. Peer Stale Detection (Logic from DiscoveryManager but for background)
+      final activeSessions = await _isar!.peerSessionCollections
+          .filter()
+          .sessionStateEqualTo(SessionState.online)
+          .findAll();
+      
+      final now = DateTime.now();
+      int staleCount = 0;
+      for (var session in activeSessions) {
+        if (now.difference(session.lastSeen).inSeconds > 45) {
+          staleCount++;
+          // Mark as stale in background if needed
+        }
+      }
+
+      _nodeStatus = pendingCount > 0 ? "SYNCING ($pendingCount)" : (activeSessions.isNotEmpty ? "ACTIVE NODES: ${activeSessions.length}" : "IDLE");
     }
     
     FlutterForegroundTask.updateService(
-      notificationTitle: 'NEURAL LINK ACTIVE',
-      notificationText: 'Last Sync: ${DateTime.now().hour}:${DateTime.now().minute}',
+      notificationTitle: 'NEURAL LINK: $_nodeStatus',
+      notificationText: 'Last Pulse: ${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}',
     );
   }
 

@@ -18,73 +18,88 @@ const PeerSessionCollectionSchema = CollectionSchema(
   name: r'PeerSessionCollection',
   id: -6739183197757395804,
   properties: {
-    r'address': PropertySchema(
+    r'activeStunServers': PropertySchema(
       id: 0,
+      name: r'activeStunServers',
+      type: IsarType.stringList,
+    ),
+    r'address': PropertySchema(
+      id: 1,
       name: r'address',
       type: IsarType.string,
     ),
+    r'connectionMethod': PropertySchema(
+      id: 2,
+      name: r'connectionMethod',
+      type: IsarType.string,
+    ),
     r'isSynced': PropertySchema(
-      id: 1,
+      id: 3,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'lastConnectedAt': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'lastConnectedAt',
       type: IsarType.dateTime,
     ),
     r'lastKnownSignal': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'lastKnownSignal',
       type: IsarType.double,
     ),
     r'lastSdp': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'lastSdp',
       type: IsarType.string,
     ),
     r'lastSeen': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'lastSeen',
       type: IsarType.dateTime,
     ),
+    r'lastSignalState': PropertySchema(
+      id: 8,
+      name: r'lastSignalState',
+      type: IsarType.string,
+    ),
     r'latitude': PropertySchema(
-      id: 6,
+      id: 9,
       name: r'latitude',
       type: IsarType.double,
     ),
     r'longitude': PropertySchema(
-      id: 7,
+      id: 10,
       name: r'longitude',
       type: IsarType.double,
     ),
     r'originPeerId': PropertySchema(
-      id: 8,
+      id: 11,
       name: r'originPeerId',
       type: IsarType.string,
     ),
     r'peerId': PropertySchema(
-      id: 9,
+      id: 12,
       name: r'peerId',
       type: IsarType.string,
     ),
     r'peerName': PropertySchema(
-      id: 10,
+      id: 13,
       name: r'peerName',
       type: IsarType.string,
     ),
     r'peerPhoto': PropertySchema(
-      id: 11,
+      id: 14,
       name: r'peerPhoto',
       type: IsarType.string,
     ),
     r'reconnectEnabled': PropertySchema(
-      id: 12,
+      id: 15,
       name: r'reconnectEnabled',
       type: IsarType.bool,
     ),
     r'sessionState': PropertySchema(
-      id: 13,
+      id: 16,
       name: r'sessionState',
       type: IsarType.byte,
       enumMap: _PeerSessionCollectionsessionStateEnumValueMap,
@@ -125,13 +140,37 @@ int _peerSessionCollectionEstimateSize(
 ) {
   var bytesCount = offsets.last;
   {
+    final list = object.activeStunServers;
+    if (list != null) {
+      bytesCount += 3 + list.length * 3;
+      {
+        for (var i = 0; i < list.length; i++) {
+          final value = list[i];
+          bytesCount += value.length * 3;
+        }
+      }
+    }
+  }
+  {
     final value = object.address;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
   }
   {
+    final value = object.connectionMethod;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.lastSdp;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.lastSignalState;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -164,20 +203,23 @@ void _peerSessionCollectionSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.address);
-  writer.writeBool(offsets[1], object.isSynced);
-  writer.writeDateTime(offsets[2], object.lastConnectedAt);
-  writer.writeDouble(offsets[3], object.lastKnownSignal);
-  writer.writeString(offsets[4], object.lastSdp);
-  writer.writeDateTime(offsets[5], object.lastSeen);
-  writer.writeDouble(offsets[6], object.latitude);
-  writer.writeDouble(offsets[7], object.longitude);
-  writer.writeString(offsets[8], object.originPeerId);
-  writer.writeString(offsets[9], object.peerId);
-  writer.writeString(offsets[10], object.peerName);
-  writer.writeString(offsets[11], object.peerPhoto);
-  writer.writeBool(offsets[12], object.reconnectEnabled);
-  writer.writeByte(offsets[13], object.sessionState.index);
+  writer.writeStringList(offsets[0], object.activeStunServers);
+  writer.writeString(offsets[1], object.address);
+  writer.writeString(offsets[2], object.connectionMethod);
+  writer.writeBool(offsets[3], object.isSynced);
+  writer.writeDateTime(offsets[4], object.lastConnectedAt);
+  writer.writeDouble(offsets[5], object.lastKnownSignal);
+  writer.writeString(offsets[6], object.lastSdp);
+  writer.writeDateTime(offsets[7], object.lastSeen);
+  writer.writeString(offsets[8], object.lastSignalState);
+  writer.writeDouble(offsets[9], object.latitude);
+  writer.writeDouble(offsets[10], object.longitude);
+  writer.writeString(offsets[11], object.originPeerId);
+  writer.writeString(offsets[12], object.peerId);
+  writer.writeString(offsets[13], object.peerName);
+  writer.writeString(offsets[14], object.peerPhoto);
+  writer.writeBool(offsets[15], object.reconnectEnabled);
+  writer.writeByte(offsets[16], object.sessionState.index);
 }
 
 PeerSessionCollection _peerSessionCollectionDeserialize(
@@ -187,22 +229,25 @@ PeerSessionCollection _peerSessionCollectionDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = PeerSessionCollection();
-  object.address = reader.readStringOrNull(offsets[0]);
+  object.activeStunServers = reader.readStringList(offsets[0]);
+  object.address = reader.readStringOrNull(offsets[1]);
+  object.connectionMethod = reader.readStringOrNull(offsets[2]);
   object.id = id;
-  object.isSynced = reader.readBool(offsets[1]);
-  object.lastConnectedAt = reader.readDateTime(offsets[2]);
-  object.lastKnownSignal = reader.readDoubleOrNull(offsets[3]);
-  object.lastSdp = reader.readStringOrNull(offsets[4]);
-  object.lastSeen = reader.readDateTime(offsets[5]);
-  object.latitude = reader.readDoubleOrNull(offsets[6]);
-  object.longitude = reader.readDoubleOrNull(offsets[7]);
-  object.originPeerId = reader.readStringOrNull(offsets[8]);
-  object.peerId = reader.readString(offsets[9]);
-  object.peerName = reader.readStringOrNull(offsets[10]);
-  object.peerPhoto = reader.readStringOrNull(offsets[11]);
-  object.reconnectEnabled = reader.readBool(offsets[12]);
+  object.isSynced = reader.readBool(offsets[3]);
+  object.lastConnectedAt = reader.readDateTime(offsets[4]);
+  object.lastKnownSignal = reader.readDoubleOrNull(offsets[5]);
+  object.lastSdp = reader.readStringOrNull(offsets[6]);
+  object.lastSeen = reader.readDateTime(offsets[7]);
+  object.lastSignalState = reader.readStringOrNull(offsets[8]);
+  object.latitude = reader.readDoubleOrNull(offsets[9]);
+  object.longitude = reader.readDoubleOrNull(offsets[10]);
+  object.originPeerId = reader.readStringOrNull(offsets[11]);
+  object.peerId = reader.readString(offsets[12]);
+  object.peerName = reader.readStringOrNull(offsets[13]);
+  object.peerPhoto = reader.readStringOrNull(offsets[14]);
+  object.reconnectEnabled = reader.readBool(offsets[15]);
   object.sessionState = _PeerSessionCollectionsessionStateValueEnumMap[
-          reader.readByteOrNull(offsets[13])] ??
+          reader.readByteOrNull(offsets[16])] ??
       SessionState.online;
   return object;
 }
@@ -215,32 +260,38 @@ P _peerSessionCollectionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readStringList(offset)) as P;
     case 1:
-      return (reader.readBool(offset)) as P;
-    case 2:
-      return (reader.readDateTime(offset)) as P;
-    case 3:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 4:
       return (reader.readStringOrNull(offset)) as P;
-    case 5:
+    case 2:
+      return (reader.readStringOrNull(offset)) as P;
+    case 3:
+      return (reader.readBool(offset)) as P;
+    case 4:
       return (reader.readDateTime(offset)) as P;
+    case 5:
+      return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 8:
       return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 11:
       return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readBool(offset)) as P;
+    case 16:
       return (_PeerSessionCollectionsessionStateValueEnumMap[
               reader.readByteOrNull(offset)] ??
           SessionState.online) as P;
@@ -464,6 +515,253 @@ extension PeerSessionCollectionQueryWhere on QueryBuilder<PeerSessionCollection,
 extension PeerSessionCollectionQueryFilter on QueryBuilder<
     PeerSessionCollection, PeerSessionCollection, QFilterCondition> {
   QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'activeStunServers',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'activeStunServers',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'activeStunServers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'activeStunServers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'activeStunServers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'activeStunServers',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'activeStunServers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'activeStunServers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+          QAfterFilterCondition>
+      activeStunServersElementContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'activeStunServers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+          QAfterFilterCondition>
+      activeStunServersElementMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'activeStunServers',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'activeStunServers',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'activeStunServers',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'activeStunServers',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'activeStunServers',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'activeStunServers',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'activeStunServers',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'activeStunServers',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> activeStunServersLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'activeStunServers',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
       QAfterFilterCondition> addressIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -614,6 +912,162 @@ extension PeerSessionCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'address',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'connectionMethod',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'connectionMethod',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'connectionMethod',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'connectionMethod',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'connectionMethod',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'connectionMethod',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'connectionMethod',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'connectionMethod',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+          QAfterFilterCondition>
+      connectionMethodContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'connectionMethod',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+          QAfterFilterCondition>
+      connectionMethodMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'connectionMethod',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'connectionMethod',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> connectionMethodIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'connectionMethod',
         value: '',
       ));
     });
@@ -1033,6 +1487,162 @@ extension PeerSessionCollectionQueryFilter on QueryBuilder<
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastSignalState',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastSignalState',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSignalState',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastSignalState',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastSignalState',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastSignalState',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastSignalState',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastSignalState',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+          QAfterFilterCondition>
+      lastSignalStateContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastSignalState',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+          QAfterFilterCondition>
+      lastSignalStateMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastSignalState',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSignalState',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection,
+      QAfterFilterCondition> lastSignalStateIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastSignalState',
+        value: '',
       ));
     });
   }
@@ -1901,6 +2511,20 @@ extension PeerSessionCollectionQuerySortBy
   }
 
   QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      sortByConnectionMethod() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'connectionMethod', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      sortByConnectionMethodDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'connectionMethod', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
       sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
@@ -1967,6 +2591,20 @@ extension PeerSessionCollectionQuerySortBy
       sortByLastSeenDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSeen', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      sortByLastSignalState() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSignalState', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      sortByLastSignalStateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSignalState', Sort.desc);
     });
   }
 
@@ -2100,6 +2738,20 @@ extension PeerSessionCollectionQuerySortThenBy
   }
 
   QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      thenByConnectionMethod() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'connectionMethod', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      thenByConnectionMethodDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'connectionMethod', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
       thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -2180,6 +2832,20 @@ extension PeerSessionCollectionQuerySortThenBy
       thenByLastSeenDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastSeen', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      thenByLastSignalState() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSignalState', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QAfterSortBy>
+      thenByLastSignalStateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSignalState', Sort.desc);
     });
   }
 
@@ -2299,9 +2965,24 @@ extension PeerSessionCollectionQuerySortThenBy
 extension PeerSessionCollectionQueryWhereDistinct
     on QueryBuilder<PeerSessionCollection, PeerSessionCollection, QDistinct> {
   QueryBuilder<PeerSessionCollection, PeerSessionCollection, QDistinct>
+      distinctByActiveStunServers() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'activeStunServers');
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QDistinct>
       distinctByAddress({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'address', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QDistinct>
+      distinctByConnectionMethod({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'connectionMethod',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -2337,6 +3018,14 @@ extension PeerSessionCollectionQueryWhereDistinct
       distinctByLastSeen() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastSeen');
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, PeerSessionCollection, QDistinct>
+      distinctByLastSignalState({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastSignalState',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -2405,10 +3094,24 @@ extension PeerSessionCollectionQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<PeerSessionCollection, List<String>?, QQueryOperations>
+      activeStunServersProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'activeStunServers');
+    });
+  }
+
   QueryBuilder<PeerSessionCollection, String?, QQueryOperations>
       addressProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'address');
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, String?, QQueryOperations>
+      connectionMethodProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'connectionMethod');
     });
   }
 
@@ -2444,6 +3147,13 @@ extension PeerSessionCollectionQueryProperty on QueryBuilder<
       lastSeenProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastSeen');
+    });
+  }
+
+  QueryBuilder<PeerSessionCollection, String?, QQueryOperations>
+      lastSignalStateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastSignalState');
     });
   }
 

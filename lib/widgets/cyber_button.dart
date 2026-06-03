@@ -27,7 +27,7 @@ class CyberButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: color, width: 1.5),
           boxShadow: [
-            BoxShadow(color: color.withOpacity(0.1), blurRadius: 10),
+            BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10),
           ],
         ),
         alignment: Alignment.center,

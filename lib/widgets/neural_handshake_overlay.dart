@@ -23,7 +23,7 @@ class NeuralHandshakeOverlay extends StatelessWidget {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
       child: Scaffold(
-        backgroundColor: Colors.black.withOpacity(0.85),
+        backgroundColor: Colors.black.withValues(alpha: 0.85),
         body: SafeArea(
           child: Obx(() {
             final hStage = controller.handshakeStage.value;
@@ -111,7 +111,7 @@ class NeuralHandshakeOverlay extends StatelessWidget {
           height: 120 + (index * 40.0),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: (isWaiting ? ThemeColors.neonPink : color).withOpacity(0.1 - (index * 0.02)), width: 1),
+            border: Border.all(color: (isWaiting ? ThemeColors.neonPink : color).withValues(alpha: 0.1 - (index * 0.02)), width: 1),
           ),
         ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(duration: Duration(seconds: 2 + index), begin: const Offset(1, 1), end: const Offset(1.2, 1.2))),
         
@@ -121,7 +121,7 @@ class NeuralHandshakeOverlay extends StatelessWidget {
             width: 200,
             height: 200,
             child: CustomPaint(
-              painter: RadarSweepPainter(ThemeColors.neonPink.withOpacity(0.2)),
+              painter: RadarSweepPainter(ThemeColors.neonPink.withValues(alpha: 0.2)),
             ),
           ).animate(onPlay: (c) => c.repeat()).rotate(duration: const Duration(seconds: 4)),
 
@@ -132,7 +132,7 @@ class NeuralHandshakeOverlay extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: color, width: 2),
-            boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 20)],
+            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 20)],
           ),
           child: Icon(
             isFailed ? Icons.error_outline : (isComplete ? Icons.bolt_rounded : (isWaiting ? Icons.radar : Icons.hub_outlined)),
@@ -339,9 +339,9 @@ class NeuralHandshakeOverlay extends StatelessWidget {
           padding: const EdgeInsets.all(15),
           margin: const EdgeInsets.only(bottom: 20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05), 
+            color: Colors.white.withValues(alpha: 0.05), 
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: ThemeColors.neonPink.withOpacity(0.3)),
+            border: Border.all(color: ThemeColors.neonPink.withValues(alpha: 0.3)),
           ),
           child: Column(
             children: [
@@ -396,8 +396,8 @@ class NeuralHandshakeOverlay extends StatelessWidget {
       decoration: BoxDecoration(
         color: ThemeColors.glassBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ThemeColors.neonPink.withOpacity(0.5)),
-        boxShadow: [BoxShadow(color: ThemeColors.neonPink.withOpacity(0.1), blurRadius: 20)],
+        border: Border.all(color: ThemeColors.neonPink.withValues(alpha: 0.5)),
+        boxShadow: [BoxShadow(color: ThemeColors.neonPink.withValues(alpha: 0.1), blurRadius: 20)],
       ),
       child: Column(
         children: [
@@ -431,7 +431,7 @@ class NeuralHandshakeOverlay extends StatelessWidget {
                       Get.snackbar(
                         "INJECTION FAILED",
                         "CLIPBOARD IS EMPTY",
-                        backgroundColor: Colors.redAccent.withOpacity(0.5),
+                        backgroundColor: Colors.redAccent.withValues(alpha: 0.5),
                         colorText: Colors.white,
                         snackPosition: SnackPosition.BOTTOM,
                       );
@@ -458,7 +458,7 @@ class NeuralHandshakeOverlay extends StatelessWidget {
       children: [
         const Text("NEURAL HANDSHAKE IN PROGRESS", style: TextStyle(color: Colors.white24, fontSize: 8, letterSpacing: 2)),
         const SizedBox(height: 10),
-        LinearProgressIndicator(backgroundColor: Colors.white.withOpacity(0.05), color: ThemeColors.neonCyan),
+        LinearProgressIndicator(backgroundColor: Colors.white.withValues(alpha: 0.05), color: ThemeColors.neonCyan),
       ],
     ).animate().fadeIn(delay: const Duration(seconds: 1));
   }
@@ -474,7 +474,7 @@ class RadarSweepPainter extends CustomPainter {
     final radius = size.width / 2;
     final paint = Paint()
       ..shader = SweepGradient(
-        colors: [color.withOpacity(0), color],
+        colors: [color.withValues(alpha: 0), color],
         stops: const [0.7, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: radius));
 

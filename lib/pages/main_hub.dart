@@ -3,7 +3,8 @@ import 'package:get/get.dart';
 import '../utils/theme_colors.dart';
 import 'home_page.dart';
 import 'chat_page.dart';
-import 'log_page.dart';
+import 'files_page.dart';
+import 'peers_page.dart';
 import 'settings_page.dart';
 
 class MainHub extends StatefulWidget {
@@ -19,8 +20,8 @@ class _MainHubState extends State<MainHub> {
   final List<Widget> _pages = [
     HomePage(),
     const ChatPage(),
-    const PlaceholderPage(title: "FILES"),
-    const PlaceholderPage(title: "PEERS"),
+    const FilesPage(),
+    const PeersPage(),
     const ProfilePage(),
   ];
 
@@ -42,7 +43,7 @@ class _MainHubState extends State<MainHub> {
         color: ThemeColors.darkBg,
         border: const Border(top: BorderSide(color: Colors.white10, width: 0.5)),
         boxShadow: [
-          BoxShadow(color: ThemeColors.neonPurple.withOpacity(0.05), blurRadius: 20, spreadRadius: 1),
+          BoxShadow(color: ThemeColors.neonPurple.withValues(alpha: 0.05), blurRadius: 20, spreadRadius: 1),
         ],
       ),
       child: BottomNavigationBar(
@@ -62,24 +63,6 @@ class _MainHubState extends State<MainHub> {
           BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: "Peers"),
           BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: "Profile"),
         ],
-      ),
-    );
-  }
-}
-
-class PlaceholderPage extends StatelessWidget {
-  final String title;
-  const PlaceholderPage({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ThemeColors.darkBg,
-      body: Center(
-        child: Text(
-          title,
-          style: const TextStyle(color: Colors.white24, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
-        ),
       ),
     );
   }

@@ -54,7 +54,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 border: Border.all(color: neonPink, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: neonPink.withOpacity(0.3),
+                    color: neonPink.withValues(alpha: 0.3),
                     blurRadius: 15,
                     spreadRadius: 2,
                   )

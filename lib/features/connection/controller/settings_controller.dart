@@ -1,12 +1,10 @@
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import '../../../services/database_service.dart';
 import '../../../data/collections/stun_collection.dart';
-import 'package:isar/isar.dart';
 
 class SettingsController extends GetxController {
   final DatabaseService _db = Get.find<DatabaseService>();
@@ -30,7 +28,7 @@ class SettingsController extends GetxController {
   // P2P Settings
   var localDiscovery = true.obs;
   var ipv6Enabled = false.obs;
-  var dhtExperimental = false.obs;
+  var lanDiscoveryExperimental = false.obs;
 
   // Encryption
   var encryptionEnabled = true.obs;
